@@ -147,7 +147,7 @@ function openCard(id, params) {
   const L = infoFor(id, params), c = $('#card');
   const m = L.media || {};
   const media = m.video ? `<video src="${m.video}" poster="${m.poster || ''}" muted loop playsinline autoplay></video>` : m.img ? `<img src="${m.img}" alt="${L.name}">` : '';
-  c.querySelector('.c-media').innerHTML = media + (m.credit ? `<span class="credit">${m.credit}</span>` : '');
+  c.querySelector('.c-media').innerHTML = media;
   c.querySelector('.c-media').style.display = media ? '' : 'none';
   c.querySelector('h2').innerHTML = `${L.icon || '📍'} ${L.name}${L.dev ? ` <small>${L.dev}</small>` : ''}`;
   c.querySelector('.c-tag').textContent = L.tag || '';
@@ -185,7 +185,7 @@ function finishEat() {
   const d = DISHES[id]; const isNew = passport.add(id);
   cur.particles?.burst(pos.x, pos.y + 0.3, pos.z, 50, 0xffd27a, 3, 1.1);
   const c = $('#eatcard');
-  c.querySelector('.e-photo').innerHTML = d.photo ? `<img src="${d.photo}" alt="${d.name}"><span class="credit">${d.credit}</span>` : `<div class="big-ic">${d.icon}</div>`;
+  c.querySelector('.e-photo').innerHTML = d.photo ? `<img src="${d.photo}" alt="${d.name}">` : `<div class="big-ic">${d.icon}</div>`;
   c.querySelector('h2').innerHTML = `${d.icon} ${d.name} <small>${d.dev}</small>`;
   c.querySelector('p').textContent = d.fact;
   c.querySelector('.stamp').textContent = isNew ? '🎉 New Food Passport stamp!' : 'Already stamped — tasty again!';
@@ -205,7 +205,7 @@ function renderPassport() {
 function openPause() { openOverlay('#pause'); }
 $('#btnResume').onclick = () => closeOverlay();
 $('#btnMenu').onclick = openPause;
-$('#btnCredits').onclick = () => { renderCredits(); openOverlay('#credits'); };
+if ($('#btnCredits')) $('#btnCredits').onclick = () => { renderCredits(); openOverlay('#credits'); };
 $('#btnControls').onclick = () => openOverlay('#controls');
 $('#btnAuto').onclick = () => { autoTime = !autoTime; $('#btnAuto').textContent = `Auto day/night: ${autoTime ? 'ON' : 'OFF'}`; };
 $('#btnResetPP').onclick = () => { if (confirm('Reset your Food Passport?')) { passport.tried.clear(); localStorage.removeItem('nepalgunj-food-passport-v1'); updatePassportHUD(); toast('Passport cleared'); } };

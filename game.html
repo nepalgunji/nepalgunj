@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Namaste Nepalgunj · नमस्ते नेपालगञ्ज — walk the city in 3D</title>
+<meta name="description" content="A walkable 3D game world of Nepalgunj, Nepal: Bageshwori Mandir, Junge Mahadev, the 108-ft Hanuman, Rani Talau, chowks, Rapti bridges, Wonder Land, Ravan Dahan and a Food Passport.">
+<meta property="og:title" content="Namaste Nepalgunj — walk the city in 3D">
+<meta property="og:image" content="assets/videos/rapti-hero-poster.webp">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛕</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:ital,wght@0,700;1,500&family=Noto+Sans+Devanagari:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/game.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="game"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="topbar">
+    <div class="where"><span class="pin">📍</span><span id="where">Nepalgunj</span></div>
+    <div id="compass"><div class="strip"></div><b id="heading">N</b></div>
+    <div class="btns">
+      <button id="btnMap" title="Map & fast travel (M)">🗺️<span>Map</span></button>
+      <button id="btnDay" title="Day / night (N)">🌓<span>Day/Night</span></button>
+      <button id="btnView" title="1st / 3rd person (V)">👁️<span>View</span></button>
+      <button id="btnPassport" title="Food Passport (P)">🍛<span id="ppCount">0/13</span></button>
+      <button id="btnMenu" title="Menu (Esc)">☰<span>Menu</span></button>
+    </div>
+  </div>
+  <canvas id="minimap" width="180" height="180" aria-label="minimap"></canvas>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div class="joystick"><i></i></div>
+  <div class="touchbtns">
+    <button id="btnSprint">🏃</button>
+    <button id="btnJump">⤒</button>
+    <button id="btnUse">✋</button>
+  </div>
+  <div class="crosshair"></div>
+</div>
+
+<!-- Start screen -->
+<section id="start">
+  <video class="bg" autoplay muted loop playsinline poster="assets/videos/rapti-hero-poster.webp">
+    <source src="assets/videos/rapti-hero-480.mp4" type="video/mp4" media="(max-width: 760px)">
+    <source src="assets/videos/rapti-hero.mp4" type="video/mp4">
+  </video>
+  <div class="veil"></div>
+  <div class="inner">
+    <p class="kicker">नमस्ते · Namaste · आदाब</p>
+    <h1>Namaste <em>Nepalgunj</em></h1>
+    <p class="dev">नमस्ते नेपालगञ्ज</p>
+    <p class="lede">Walk the streets of Nepal's borderland city in 3D. Enter Bageshwori Mandir, cross the Rapti bridge, splash through Wonder Land, light the Ravan effigy — and eat your way through the <b>Food Passport</b>.</p>
+    <div class="cta">
+      <button id="btnStart" disabled>Loading…</button>
+      <a href="index.html" class="ghost">← Back to the film</a>
+    </div>
+    <p id="startProg" class="prog"></p>
+    <div class="qual">Graphics:
+      <button data-q="auto">Auto</button><button data-q="high">High</button><button data-q="low">Low</button>
+    </div>
+    <div class="keys"><span><kbd>W A S D</kbd> walk</span><span><kbd>Mouse</kbd> look</span><span><kbd>Shift</kbd> run</span><span><kbd>E</kbd> interact</span><span><kbd>M</kbd> map</span><span><kbd>N</kbd> day/night</span></div>
+  </div>
+</section>
+
+<div id="fade"><p id="loadmsg"></p></div>
+
+<!-- Info card -->
+<aside id="card" class="panel side">
+  <button class="x" data-close>✕</button>
+  <div class="c-media"></div>
+  <h2></h2><p class="c-tag"></p>
+  <ul></ul>
+</aside>
+
+<!-- Food menu -->
+<div id="foodmenu" class="panel center">
+  <button class="x" data-close>✕</button>
+  <p class="kick">Order · अर्डर</p><h2></h2>
+  <div class="dishes"></div>
+  <p class="note">No prices shown — we only list what our research could confirm.</p>
+</div>
+
+<!-- Eat fact card -->
+<div id="eatcard" class="panel center">
+  <button class="x" data-close>✕</button>
+  <div class="e-photo"></div>
+  <h2></h2><p></p>
+  <div class="stamp"></div>
+  <button class="ok" data-close>Continue exploring</button>
+</div>
+
+<!-- Passport -->
+<div id="passport" class="panel center wide">
+  <button class="x" data-close>✕</button>
+  <p class="kick">Nepalgunj</p><h2>Food Passport · खाना राहदानी</h2>
+  <p class="pcount"></p>
+  <div class="badge">🏅 <b>Nepalgunj Food Master</b> — you tasted every dish!</div>
+  <div class="grid"></div>
+  <p class="note">Find stalls at Dhamboji, B.P., Pushpalal, Tribhuvan &amp; Chaulika Chowk, and sit down at Biryani Corner. Photos are representative.</p>
+</div>
+
+<!-- Big map -->
+<div id="bigmap" class="panel center wide">
+  <button class="x" data-close>✕</button>
+  <h2>Map of Nepalgunj · fast travel</h2>
+  <div class="mapwrap"><canvas></canvas></div>
+  <div class="fast"></div>
+  <p class="note">Stylized layout — not to scale. Tap a place to travel there.</p>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="panel center">
+  <p class="kick">Paused</p><h2>Namaste Nepalgunj</h2>
+  <div class="menu">
+    <button id="btnResume">▶ Resume</button>
+    <a href="index.html">← Back to the film</a>
+    <button onclick="document.getElementById('btnMap').click()">🗺️ Map & fast travel</button>
+    <button onclick="document.getElementById('btnPassport').click()">🍛 Food Passport</button>
+    <button id="btnControls">🎮 Controls</button>
+    <button id="btnAuto">Auto day/night: ON</button>
+    <button id="btnResetPP" class="small">Reset passport</button>
+  </div>
+  <div class="qual">Graphics: <button data-q="auto">Auto</button><button data-q="high">High</button><button data-q="low">Low</button></div>
+</div>
+
+<div id="controls" class="panel center">
+  <button class="x" data-close>✕</button>
+  <h2>Controls</h2>
+  <table>
+    <tr><td><kbd>W A S D</kbd> / arrows</td><td>Walk (arrows ← → turn)</td></tr>
+    <tr><td><kbd>Mouse</kbd></td><td>Look (click to lock pointer, wheel to zoom)</td></tr>
+    <tr><td><kbd>Shift</kbd></td><td>Run</td></tr><tr><td><kbd>Space</kbd></td><td>Jump</td></tr>
+    <tr><td><kbd>E</kbd></td><td>Enter / buy &amp; eat / talk / sit</td></tr>
+    <tr><td><kbd>M</kbd></td><td>Map &amp; fast travel</td></tr><tr><td><kbd>N</kbd></td><td>Day / night</td></tr>
+    <tr><td><kbd>V</kbd></td><td>First / third person</td></tr><tr><td><kbd>P</kbd></td><td>Food Passport</td></tr><tr><td><kbd>Esc</kbd></td><td>Menu</td></tr>
+    <tr><td>📱 Touch</td><td>Left thumb walk · right thumb look · ✋ interact</td></tr>
+  </table>
+</div>
+
+<noscript><p style="padding:2rem;color:#fff">This 3D game needs JavaScript. <a href="index.html">See the film version</a>.</p></noscript>
+<script type="module" src="js/game/main.js"></script>
+</body>
+</html>

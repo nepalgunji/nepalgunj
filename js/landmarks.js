@@ -10,7 +10,7 @@ export const LANDMARKS = [
       'Principal Hindu shrine of Nepalgunj, often called the oldest temple in Banke District.',
       'Goddess Bageshwori — a form of Durga / Bhagwati associated with speech; tradition says Sati Devi\'s tongue fell here.',
       'Its image has appeared on Nepali one-rupee coins and postage stamps.',
-      'Busiest on Tuesdays & Saturdays; Dashain brings the biggest crowds. Deep Utsav nights fill it with lamps.'
+      'Busiest on Tuesdays & Saturdays; Dashain brings the biggest crowds.'
     ]
   },
   {

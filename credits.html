@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Credits · Nepalgunj</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #15110e; color: #f5ede1; font: 300 15px/1.6 Inter, system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 12vh 24px; }
+  h1 { font: 500 56px/1 'Cormorant Garamond', serif; margin: 0 0 8px; }
+  h2 { font: 500 28px 'Cormorant Garamond', serif; margin: 48px 0 12px; color: #e9b86e; }
+  p.lede { color: rgba(245, 237, 225, .7); }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 10px 0; border-bottom: 1px solid rgba(245, 237, 225, .08); }
+  li b { font-weight: 500; } li span { color: rgba(245, 237, 225, .6); }
+  a { color: #e9b86e; text-decoration: none; } a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<!-- Hidden, unlinked credits page. Enable later by linking it from index.html. Data: assets/data/credits.json -->
+<main>
+  <h1>Credits</h1>
+  <p class="lede">With thanks to the creators and photographers whose work brings Nepalgunj to life on this site.</p>
+  <div id="out"></div>
+  <p><a href="index.html">← Back</a></p>
+</main>
+<script type="module">
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>` : esc(t);
+const data = await (await fetch('assets/data/credits.json')).json();
+const groups = [
+  ['Videos & photos from Nepalgunj creators', d => (d.type === 'creator_clip' || d.type === 'creator_photo') && d.used_on_site !== false,
+    d => `<b>${esc(d.creator_display || d.creator)}</b> <span>· ${esc(d.platform || '')}</span><br>${link(d.source_url, (d.caption || d.key || '').slice(0, 110))}`],
+  ['Drone footage', d => d.type === 'video', d => `<b>${esc(d.title)}</b> <span>· ${esc(d.author)}</span>`],
+  ['Photographs (Wikimedia Commons)', d => !d.type, d => `<b>${esc(d.author)}</b> <span>· ${link(d.license_url, d.license)}</span><br>${link(d.page, d.title)}`],
+  ['Map data, code & fonts', d => d.type === 'data' || d.type === 'library', d => `<b>${esc(d.title)}</b> <span>· ${esc(d.author)} · ${link(d.license_url, d.license)}</span>`]
+];
+document.getElementById('out').innerHTML = groups.map(([h, f, r]) => { const items = data.filter(f); return items.length ? `<h2>${h}</h2><ul>${items.map(d => `<li>${r(d)}</li>`).join('')}</ul>` : ''; }).join('');
+</script>
+</body>
+</html>
