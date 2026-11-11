@@ -1,0 +1,146 @@
+:root{--saf:#e8641c;--gold:#f2b63a;--ink:#14100c;--cream:#fff6e6;--glass:rgba(18,14,10,.62);--line:rgba(255,255,255,.14);--r:16px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0d0b09;color:var(--cream);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+a{color:var(--gold)}
+kbd{display:inline-block;padding:.1em .45em;border:1px solid rgba(255,255,255,.35);border-bottom-width:3px;border-radius:6px;font:600 .8em Inter,sans-serif;background:rgba(255,255,255,.08)}
+#game{position:fixed;inset:0}
+#game canvas{display:block;width:100%!important;height:100%!important}
+.labels{position:fixed!important;inset:0;pointer-events:none}
+.w-label{font:700 13px Inter,sans-serif;color:#fff;background:rgba(20,14,10,.62);padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.25);white-space:nowrap;text-align:center;backdrop-filter:blur(4px);text-shadow:0 1px 2px #000}
+.w-label small{display:block;font:500 11px 'Noto Sans Devanagari',sans-serif;opacity:.85}
+.w-label.big{font-size:15px;background:rgba(140,30,20,.7)}
+.w-label.chowk{background:rgba(30,60,90,.7)}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .5s}
+#hud.on{opacity:1}
+#hud button{pointer-events:auto}
+.topbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:max(12px,env(safe-area-inset-top)) 14px 0}
+.where{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);padding:8px 14px;border-radius:999px;font-weight:700;max-width:34vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#compass{position:absolute;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);width:300px;height:34px;overflow:hidden;background:var(--glass);border:1px solid var(--line);border-radius:999px;backdrop-filter:blur(8px);-webkit-mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+#compass .strip{position:absolute;left:50%;top:0;height:100%}
+#compass span{position:absolute;top:7px;transform:translateX(-50%);font:800 13px Inter;color:#fff}
+#compass span.m{font-size:10px;top:9px;opacity:.6}
+#compass b{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:0;height:0;border:6px solid transparent;border-bottom-color:var(--gold);font-size:0}
+.btns{display:flex;gap:6px}
+.btns button{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);border-radius:12px;padding:6px 10px;font-size:18px;display:flex;flex-direction:column;align-items:center;min-width:52px;transition:.2s}
+.btns button span{font-size:10px;font-weight:600;opacity:.85}
+.btns button:hover{background:rgba(232,100,28,.55)}
+.btns button.gold{background:linear-gradient(135deg,#c8901a,#f2c230);color:#2a1a00}
+#minimap{position:absolute;right:14px;bottom:max(14px,env(safe-area-inset-bottom));width:180px;height:180px;border-radius:50%;border:3px solid rgba(255,255,255,.75);box-shadow:0 6px 24px rgba(0,0,0,.45)}
+#prompt{position:absolute;left:50%;bottom:22%;transform:translate(-50%,10px);opacity:0;background:rgba(20,14,10,.78);border:1px solid var(--gold);padding:10px 18px;border-radius:999px;font-weight:700;transition:.2s;white-space:nowrap}
+#prompt.on{opacity:1;transform:translate(-50%,0)}
+#prompt kbd{background:var(--gold);color:#2a1a00;border-color:#8a5a00;margin-right:6px}
+#toast{position:absolute;left:50%;top:72px;transform:translate(-50%,-10px);opacity:0;background:rgba(20,14,10,.8);padding:10px 18px;border-radius:12px;transition:.3s;max-width:90vw;text-align:center;border:1px solid var(--line)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.7);display:none}
+body[data-fp="1"] .crosshair{display:block}
+.joystick{position:absolute;width:110px;height:110px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:rgba(0,0,0,.18);display:none}
+.joystick.on{display:block}
+.joystick i{position:absolute;left:30px;top:30px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.55)}
+.touchbtns{display:none}
+body.touch .touchbtns{display:flex;position:absolute;right:16px;bottom:calc(150px + env(safe-area-inset-bottom));flex-direction:column;gap:12px;align-items:flex-end}
+.touchbtns button{width:58px;height:58px;border-radius:50%;background:var(--glass);border:2px solid rgba(255,255,255,.4);font-size:24px}
+.touchbtns button.sel{background:var(--saf)}
+#btnUse{display:none;width:76px;height:76px;font-size:32px;background:var(--saf);border-color:#fff;animation:pulse 1.2s infinite}
+#btnUse.on{display:block}
+@keyframes pulse{50%{transform:scale(1.08)}}
+
+/* Start screen */
+#start{position:fixed;inset:0;z-index:20;display:grid;place-items:center;transition:opacity .8s,visibility .8s}
+#start.gone{opacity:0;visibility:hidden}
+#start .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#start .veil{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 60%,rgba(10,6,2,.25),rgba(10,6,2,.82)),linear-gradient(0deg,rgba(10,6,2,.85),transparent 60%)}
+#start .inner{position:relative;max-width:780px;padding:24px;text-align:center}
+.kicker{letter-spacing:.3em;text-transform:uppercase;font-size:12px;color:var(--gold);font-weight:700}
+#start h1{font:700 clamp(44px,8vw,96px)/1 'Playfair Display',serif;margin:.2em 0 .05em;text-shadow:0 4px 30px rgba(0,0,0,.5)}
+#start h1 em{color:var(--gold);font-style:italic}
+#start .dev{font:700 clamp(20px,3vw,30px) 'Noto Sans Devanagari',sans-serif;opacity:.9}
+.lede{margin:18px auto;max-width:600px;font-size:clamp(15px,1.8vw,18px);opacity:.92}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:22px 0 10px}
+#btnStart{background:linear-gradient(135deg,var(--saf),#c8361c);padding:16px 34px;border-radius:999px;font-weight:800;font-size:18px;box-shadow:0 10px 30px rgba(232,100,28,.45);transition:.2s}
+#btnStart:hover:not(:disabled){transform:translateY(-2px) scale(1.03)}
+#btnStart:disabled{opacity:.6;cursor:wait}
+.ghost{padding:16px 26px;border-radius:999px;border:1px solid rgba(255,255,255,.4);color:#fff;text-decoration:none;font-weight:700;backdrop-filter:blur(6px)}
+.prog{font-size:12px;opacity:.7;min-height:1.4em}
+.qual{margin-top:10px;font-size:13px;opacity:.9}
+.qual button{padding:4px 12px;margin:0 2px;border:1px solid rgba(255,255,255,.3);border-radius:999px;font-size:12px}
+.qual button.sel{background:var(--gold);color:#2a1a00}
+.keys{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:18px;font-size:12px;opacity:.8}
+body.touch .keys{display:none}
+.vcredit{position:absolute;right:14px;bottom:10px;font-size:11px;opacity:.6}
+
+#fade{position:fixed;inset:0;z-index:30;background:#0d0b09;opacity:0;pointer-events:none;transition:opacity .35s;display:grid;place-items:center}
+#fade.on{opacity:1;pointer-events:auto}
+#fade p{font-weight:700;letter-spacing:.1em;color:var(--gold)}
+
+/* Panels */
+.panel{position:fixed;z-index:25;background:rgba(22,16,11,.92);border:1px solid var(--line);backdrop-filter:blur(14px);border-radius:var(--r);padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;visibility:hidden;transition:.3s;max-height:88vh;overflow:auto;user-select:text}
+.panel.on{opacity:1;visibility:visible}
+.panel.center{left:50%;top:50%;transform:translate(-50%,-46%);width:min(460px,92vw)}
+.panel.center.on{transform:translate(-50%,-50%)}
+.panel.wide{width:min(860px,94vw)}
+.panel.side{right:14px;top:70px;width:min(400px,92vw);transform:translateX(30px)}
+.panel.side.on{transform:none}
+.panel h2{font:700 24px 'Playfair Display',serif;margin:6px 0}
+.panel h2 small{font:600 15px 'Noto Sans Devanagari',sans-serif;color:var(--gold)}
+.panel .x{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);z-index:2}
+.kick{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.note{font-size:12px;opacity:.65;margin-top:12px}
+.c-media{position:relative;margin:-22px -22px 12px;border-radius:var(--r) var(--r) 0 0;overflow:hidden;background:#000}
+.c-media video,.c-media img{display:block;width:100%;max-height:300px;object-fit:cover}
+.credit{position:absolute;right:6px;bottom:6px;font-size:10px;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:6px;max-width:92%}
+.c-tag{color:var(--gold);font-size:13px;font-weight:600;margin-bottom:8px}
+#card ul{padding-left:18px;display:grid;gap:6px;font-size:14px}
+#card li.src{list-style:none;margin-left:-18px;font-size:12px;opacity:.7}
+.c-story{display:inline-block;margin-top:14px;font-weight:700}
+.dishes{display:grid;gap:8px;margin-top:12px}
+.dishes button{display:grid;grid-template-columns:44px 1fr auto;grid-template-rows:auto auto;text-align:left;align-items:center;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line);transition:.2s}
+.dishes button:hover{background:rgba(232,100,28,.4)}
+.dishes .ic{grid-row:span 2;font-size:28px}
+.dishes small{font-family:'Noto Sans Devanagari';opacity:.75;grid-column:2}
+.dishes em{grid-row:1/3;grid-column:3;font-style:normal;font-size:11px;color:#8fd18f}
+.e-photo{position:relative;margin:-22px -22px 12px;border-radius:var(--r) var(--r) 0 0;overflow:hidden}
+.e-photo img{display:block;width:100%;height:220px;object-fit:cover}
+.big-ic{font-size:90px;text-align:center;padding:18px;background:radial-gradient(circle,#4a2a10,#1a100a)}
+.stamp{margin:12px 0;padding:10px;border:2px dashed var(--gold);border-radius:12px;text-align:center;font-weight:800;color:var(--gold);transform:rotate(-1.5deg)}
+.ok{width:100%;padding:12px;border-radius:999px;background:var(--saf);font-weight:800}
+#passport .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:14px}
+.stampbox{padding:12px 8px;border-radius:12px;border:1px dashed rgba(255,255,255,.25);text-align:center;opacity:.55}
+.stampbox span{font-size:34px;display:block}
+.stampbox b{display:block;font-size:13px}
+.stampbox small{font-family:'Noto Sans Devanagari';opacity:.75}
+.stampbox.got{opacity:1;border:2px solid var(--gold);background:rgba(242,182,58,.12)}
+.badge{display:none;margin-top:10px;padding:12px;border-radius:12px;background:linear-gradient(135deg,#c8901a,#f2c230);color:#2a1a00;font-size:16px;text-align:center}
+.badge.on{display:block;animation:pulse 1.4s 3}
+.mapwrap{margin-top:10px;border-radius:12px;overflow:hidden;background:#000}
+.mapwrap canvas{display:block;width:100%;max-height:56vh;object-fit:contain;cursor:crosshair}
+.fast{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.fast button{padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);font-size:12px}
+.fast button:hover{background:var(--saf)}
+.menu{display:grid;gap:8px;margin:14px 0}
+.menu button,.menu a{display:block;text-align:left;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:#fff;text-decoration:none;font-weight:600}
+.menu button:hover,.menu a:hover{background:rgba(232,100,28,.45)}
+.menu .small{font-size:12px;opacity:.7;padding:8px 16px}
+#controls table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+#controls td{padding:7px 4px;border-bottom:1px solid var(--line)}
+#credits .list{padding-left:18px;font-size:12px;display:grid;gap:4px}
+#credits h3{margin:12px 0 4px -18px;font-size:14px;color:var(--gold);list-style:none}
+
+@media (max-width:760px){
+  .btns button span{display:none}
+  .btns button{min-width:40px;padding:6px 8px;font-size:16px}
+  #compass{top:calc(max(12px,env(safe-area-inset-top)) + 46px);width:200px;height:28px}
+  #compass span{top:4px}
+  .where{max-width:38vw;font-size:13px;padding:7px 12px}
+  #minimap{width:112px;height:112px;left:auto;right:12px;top:calc(max(12px,env(safe-area-inset-top)) + 84px);bottom:auto}
+  body.touch .touchbtns{bottom:calc(24px + env(safe-area-inset-bottom))}
+  #prompt{bottom:auto;top:58%;font-size:13px}
+  .panel.side{left:4vw;right:4vw;width:auto;top:auto;bottom:10px;max-height:62vh}
+  #start .inner{padding:18px}
+}
+.w-label.poi{font-size:11px;font-weight:600;background:rgba(255,255,255,.82);color:#1b1410;text-shadow:none;border-color:rgba(0,0,0,.15)}
+.w-label.far{background:rgba(31,90,138,.78)}
+.w-label.far small{font-family:Inter,sans-serif;font-size:10px;opacity:.85}
+.fast button i{opacity:.6;font-style:normal;font-size:10px}
