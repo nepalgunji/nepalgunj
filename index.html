@@ -3,39 +3,56 @@
 <head>
 <meta charset="utf-8">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Nepalgunj · नेपालगञ्ज — the Terai city in 3D</title>
-<meta name="description" content="Scroll through Nepalgunj in real-time 3D — Bageshwori Mandir, the 108-ft Hanuman, Tribhuvan and Dhamboji Chowk, Rani Talau, from dawn to festival night.">
-<meta name="theme-color" content="#0d0b09">
-<meta property="og:title" content="Nepalgunj · नेपालगञ्ज"><meta property="og:image" content="assets/videos/drone1-poster.webp">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Nepalgunj · नेपालगञ्ज — explore in 360°</title>
+<meta name="description" content="Fly over Nepalgunj in 3D and step into real 360° views — BP Chowk, Bageshwori, the 108-ft Hanuman, Tribhuvan and Dhamboji Chowk, Rani Talau.">
+<meta name="theme-color" content="#0b0a09">
+<meta property="og:title" content="Nepalgunj · नेपालगञ्ज"><meta property="og:image" content="assets/pano/bp-sky-thumb.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500&family=Noto+Serif+Devanagari:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/w3d.css">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500;600&family=Noto+Serif+Devanagari:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/x360.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
-  "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/index.js",
-  "gsap/ScrollTrigger": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/ScrollTrigger.js",
-  "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.mjs"
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
 </head>
 <body>
-<canvas id="gl" aria-label="Real-time 3D view of Nepalgunj"></canvas>
+<canvas id="gl" aria-label="3D aerial view of Nepalgunj — drag to orbit"></canvas>
 <div class="vignette" aria-hidden="true"></div>
+<div id="pins"></div>
+
 <header class="brand"><span>Nepalgunj</span><em>नेपालगञ्ज</em></header>
-<div id="clock" aria-hidden="true"><b>06:10</b></div>
-<nav id="dots" aria-label="Chapters"></nav>
-<div id="pin" aria-hidden="true"><i></i><span></span></div>
-<section id="title" aria-live="polite"><h2></h2><p class="dev"></p><p class="line"></p></section>
-<figure id="frame" aria-hidden="true"></figure>
-<div id="scrollhint" aria-hidden="true"><span>Scroll</span><i></i></div>
-<div id="track"></div>
+<nav id="tod" aria-label="Time of day">
+  <button data-h="6.9" title="Dawn"><svg viewBox="0 0 24 24"><path d="M3 18h18M6.3 14.5a6 6 0 0 1 11.4 0M12 4v3M4.9 8.6l1.8 1.5M19.1 8.6l-1.8 1.5"/></svg><span>Dawn</span></button>
+  <button data-h="11.6" title="Day" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><span>Day</span></button>
+  <button data-h="17.2" title="Dusk"><svg viewBox="0 0 24 24"><path d="M3 18h18M6.3 14.5a6 6 0 0 1 11.4 0M12 10V6M9.5 8.5 12 6l2.5 2.5"/></svg><span>Dusk</span></button>
+  <button data-h="20.2" title="Night"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Night</span></button>
+</nav>
+<button id="listBtn" aria-label="All places"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Places</span></button>
+<aside id="drawer" aria-label="Places"><ul></ul></aside>
+<div id="hint" aria-hidden="true"><span class="d">Drag to explore · tap a place</span><span class="m">Drag to explore · tap a place</span></div>
+<section id="card" aria-live="polite"><h2></h2><p class="dev"></p><p class="line"></p></section>
+
+<div id="place" aria-hidden="true">
+  <canvas id="pano"></canvas>
+  <div id="hots"></div>
+  <div id="film"><video class="bg" muted playsinline loop preload="auto"></video><video class="fg" muted playsinline loop preload="auto"></video></div>
+  <div class="pvig" aria-hidden="true"></div>
+  <button id="back" aria-label="Back to the city"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>City</span></button>
+  <div id="ptag"></div>
+  <section id="ptitle"><h2></h2><p class="dev"></p><p class="line"></p></section>
+  <nav id="nodes" aria-label="Views"></nav>
+  <div id="ptools"><button id="gyroBtn" aria-label="Look around by moving your phone"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M3 9a10 10 0 0 0 0 6M21 9a10 10 0 0 1 0 6"/></svg></button><button id="fsBtn" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+  <div id="phint" aria-hidden="true"><svg viewBox="0 0 48 24"><path d="M6 12h36M6 12l5-5M6 12l5 5M42 12l-5-5M42 12l-5 5"/></svg><span>Drag to look around</span></div>
+</div>
+<div id="flash" aria-hidden="true"></div>
+
 <div id="loader"><div><p class="dev">नेपालगञ्ज</p><h1>Nepalgunj</h1><div class="bar"><i></i></div></div></div>
-<div class="attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · Imagery © Esri, Maxar, Earthstar Geographics</div>
+<div class="attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Imagery © Esri, Maxar</div>
 <noscript><p style="position:relative;z-index:9;padding:2rem;color:#fff">This page needs JavaScript. <a href="film.html" style="color:#f0b354">Watch the film version</a>.</p></noscript>
-<script type="module" src="js/w3d/main.js"></script>
+<script type="module" src="js/x360/app.js"></script>
 </body>
 </html>
