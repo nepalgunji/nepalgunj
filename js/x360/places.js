@@ -16,7 +16,7 @@ export const PLACES = [
     nodes: [{ id: 'bag-court', label: 'Courtyard', yaw0: 0, span: [132, 31], range: [0, 132, -15.5, 15.5], start: [66, 0], fov: 30 }],
     clips: ['pc-bageshwori-2026', '../bageshwori-day'], labels: ['Festival', 'Day'], lm: [-21.8, 4.8] },
   { id: 'hanuman', name: 'Hanuman', dev: 'हनुमान · १०८ फिट', line: '108 feet tall', lat: 28.06107, lon: 81.62249, h: 46, kind: 'film',
-    clips: ['pc-hanuman-mandir', '../hanuman'], labels: ['Statue', 'Aerial'], lm: [-128.7, 66.3] },
+    clips: ['../hanuman'], labels: ['Aerial'], lm: [-128.7, 66.3] },
   { id: 'tribhuvan', name: 'Tribhuvan Chowk', dev: 'त्रिभुवन चोक', line: 'Where every road meets', lat: 28.057813, lon: 81.623504, h: 14, kind: 'film',
     clips: ['yt-tribhuvan-street-walk', 'pc-tribhuvan-chowk-2026', 'pc-tribhuvan-chowk-tihar'], labels: ['Street', 'Drone', 'Tihar'] },
   { id: 'dhamboji', name: 'Dhamboji Chowk', dev: 'धम्बोजी चोक', line: 'The bazaar that never sleeps', lat: 28.066889, lon: 81.626325, h: 14, kind: 'film',

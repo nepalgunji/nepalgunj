@@ -70,8 +70,8 @@ h2{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(40px,6
 #film{position:absolute;inset:0;display:none;overflow:hidden;background:#000}
 #film.on{display:block}
 #film video{position:absolute;inset:0;width:100%;height:100%}
-#film .bg{object-fit:cover;filter:blur(38px) brightness(.55) saturate(1.2);transform:scale(1.25)}
-#film .fg{object-fit:contain;animation:kb 22s ease-in-out infinite alternate}
+#film .bg{display:none}
+#film .fg{object-fit:cover;animation:kb 22s ease-in-out infinite alternate}
 #film.pan .fg{object-fit:cover;animation:none;cursor:grab;touch-action:none}
 #film.pan{touch-action:none}
 @keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}

@@ -104,12 +104,12 @@ async function showNode(p, n, first) {
 }
 function playClip(p, n) {
   const c = n.film;
-  vfg.poster = clipPoster(c); vbg.poster = clipPoster(c);
-  vfg.src = clipUrl(c); vbg.src = clipUrl(c);
+  vfg.poster = clipPoster(c);
+  vfg.src = clipUrl(c); vbg.removeAttribute('src'); vbg.load();
   film.classList.remove('pan'); filmPan.x = 50; vfg.style.objectPosition = ''; film.classList.toggle('drone', !!n.drone);
-  vfg.onloadedmetadata = () => { const va = vfg.videoWidth / vfg.videoHeight, sa = innerWidth / innerHeight; filmPan.on = !n.drone && va > sa * 1.25; film.classList.toggle('pan', filmPan.on); };
+  vfg.onloadedmetadata = () => { const va = vfg.videoWidth / vfg.videoHeight, sa = innerWidth / innerHeight; filmPan.on = !n.drone && va > sa * 1.25; film.classList.toggle('pan', filmPan.on); if (!filmPan.on) vfg.style.objectPosition = va < 1 ? '50% 48%' : '50% 50%'; };
   const pl = v => v.play().catch(() => { });
-  pl(vfg); pl(vbg);
+  pl(vfg);
 }
 // wide footage on a narrow (portrait) screen: fill the screen and let the user drag across it
 const filmPan = { on: false, x: 50, v: 0.6, drag: null, idle: 0 };
