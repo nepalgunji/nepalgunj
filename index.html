@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Nepalgunj · नेपालगञ्ज — a journey through the Terai city</title>
-<meta name="description" content="A scroll film through Nepalgunj, Nepal — Bageshwori Mandir, the 108-ft Hanuman, Tribhuvan and Dhamboji Chowk, Rani Talau, biryani and sekuwa, Rapti bridges and festival nights.">
-<meta name="theme-color" content="#15110e">
+<title>Nepalgunj · नेपालगञ्ज — the Terai city in 3D</title>
+<meta name="description" content="Scroll through Nepalgunj in real-time 3D — Bageshwori Mandir, the 108-ft Hanuman, Tribhuvan and Dhamboji Chowk, Rani Talau, from dawn to festival night.">
+<meta name="theme-color" content="#0d0b09">
 <meta property="og:title" content="Nepalgunj · नेपालगञ्ज"><meta property="og:image" content="assets/videos/drone1-poster.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500&family=Noto+Serif+Devanagari:wght@500&display=swap" rel="stylesheet">
-<link rel="preload" as="image" href="assets/videos/drone1-poster.webp">
-<link rel="stylesheet" href="css/film.css">
+<link rel="stylesheet" href="css/w3d.css">
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
@@ -23,20 +23,19 @@
 </script>
 </head>
 <body>
-<div id="stage" aria-hidden="true"></div>
-<div id="tod" aria-hidden="true"></div>
-<canvas id="diyas" aria-hidden="true"></canvas>
-<canvas id="map" aria-label="3D map of Nepalgunj from OpenStreetMap"></canvas>
-<div id="maplabels"></div>
-<div class="grain" aria-hidden="true"></div>
-<div id="loader"><div><p class="dev">नेपालगञ्ज</p><h1>Nepalgunj</h1><div class="bar"><i></i></div></div></div>
+<canvas id="gl" aria-label="Real-time 3D view of Nepalgunj"></canvas>
+<div class="vignette" aria-hidden="true"></div>
 <header class="brand"><span>Nepalgunj</span><em>नेपालगञ्ज</em></header>
-<div id="clock" aria-hidden="true"><i></i><div><b>06:33</b><span>Dawn</span></div></div>
+<div id="clock" aria-hidden="true"><b>06:10</b></div>
 <nav id="dots" aria-label="Chapters"></nav>
-<main id="story"></main>
-<aside id="card" role="dialog" aria-live="polite"></aside>
-<div class="osm">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
-<noscript><p style="position:relative;z-index:9;padding:2rem;color:#fff">This page needs JavaScript.</p></noscript>
-<script type="module" src="js/film/main.js"></script>
+<div id="pin" aria-hidden="true"><i></i><span></span></div>
+<section id="title" aria-live="polite"><h2></h2><p class="dev"></p><p class="line"></p></section>
+<figure id="frame" aria-hidden="true"></figure>
+<div id="scrollhint" aria-hidden="true"><span>Scroll</span><i></i></div>
+<div id="track"></div>
+<div id="loader"><div><p class="dev">नेपालगञ्ज</p><h1>Nepalgunj</h1><div class="bar"><i></i></div></div></div>
+<div class="attr">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · Imagery © Esri, Maxar, Earthstar Geographics</div>
+<noscript><p style="position:relative;z-index:9;padding:2rem;color:#fff">This page needs JavaScript. <a href="film.html" style="color:#f0b354">Watch the film version</a>.</p></noscript>
+<script type="module" src="js/w3d/main.js"></script>
 </body>
 </html>

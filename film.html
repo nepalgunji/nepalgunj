@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nepalgunj · नेपालगञ्ज — a journey through the Terai city</title>
+<meta name="description" content="A scroll film through Nepalgunj, Nepal — Bageshwori Mandir, the 108-ft Hanuman, Tribhuvan and Dhamboji Chowk, Rani Talau, biryani and sekuwa, Rapti bridges and festival nights.">
+<meta name="theme-color" content="#15110e">
+<meta property="og:title" content="Nepalgunj · नेपालगञ्ज"><meta property="og:image" content="assets/videos/drone1-poster.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@300;400;500&family=Noto+Serif+Devanagari:wght@500&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="assets/videos/drone1-poster.webp">
+<link rel="stylesheet" href="css/film.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+  "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/index.js",
+  "gsap/ScrollTrigger": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/ScrollTrigger.js",
+  "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.mjs"
+} }
+</script>
+</head>
+<body>
+<div id="stage" aria-hidden="true"></div>
+<div id="tod" aria-hidden="true"></div>
+<canvas id="diyas" aria-hidden="true"></canvas>
+<canvas id="map" aria-label="3D map of Nepalgunj from OpenStreetMap"></canvas>
+<div id="maplabels"></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="loader"><div><p class="dev">नेपालगञ्ज</p><h1>Nepalgunj</h1><div class="bar"><i></i></div></div></div>
+<header class="brand"><span>Nepalgunj</span><em>नेपालगञ्ज</em></header>
+<div id="clock" aria-hidden="true"><i></i><div><b>06:33</b><span>Dawn</span></div></div>
+<nav id="dots" aria-label="Chapters"></nav>
+<main id="story"></main>
+<aside id="card" role="dialog" aria-live="polite"></aside>
+<div class="osm">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+<noscript><p style="position:relative;z-index:9;padding:2rem;color:#fff">This page needs JavaScript.</p></noscript>
+<script type="module" src="js/film/main.js"></script>
+</body>
+</html>
