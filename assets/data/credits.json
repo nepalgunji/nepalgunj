@@ -1074,12 +1074,12 @@
  },
  {
   "key": "pano-bp-chowk",
-  "file": "assets/pano/bp-sky.webp, bp-roof.webp, bp-low.webp, bp-lane.webp (+ -2k, -thumb)",
+  "file": "assets/pano/bp-sky.webp, bp-roof.webp, bp-low.webp, bp-lane.webp (+ -2k, -thumb), assets/pano/v/bp-sky-2880.mp4, bp-sky-1920.mp4",
   "title": "Nepalgunj 360 View | 2026 | BP CHOWK | Surkhet Road",
   "page": "https://www.youtube.com/watch?v=YozNxZurKn8",
   "license": "Standard YouTube licence (all rights reserved); used at the site owner's request — owner takes responsibility, will credit/remove on request",
   "author": "Spickywolf TV (https://www.youtube.com/@spickywolf-tv)",
-  "notes": "Equirectangular 360° drone video (4K, format 315). Still frames at 20s, 222s, 255s, 279s extracted, resampled 3840x1920, nadir softened. Compass offset for bp-sky estimated from Ratna Rajmarg road bearings (OSM) and sun position.",
+  "notes": "Equirectangular 360° drone video (4K, format 315). Still frames at 20s, 222s, 255s, 279s extracted, resampled 3840x1920, nadir softened. Compass offset for bp-sky estimated from Ratna Rajmarg road bearings (OSM) and sun position. Live 360 loop: 22–33s segment of the same video, re-projected equirect, 9s crossfade loop (2880/1920 H.264, muted).",
   "w": 3840,
   "h": 1920
  },
@@ -1102,5 +1102,16 @@
   "license": "Owner-supplied",
   "author": "Site owner",
   "notes": "Clean segment 0:08–0:28, no title/end card, re-encoded 1080x1920 H.264 30fps."
+ },
+ {
+  "key": "pano-bageshwori-court",
+  "file": "assets/pano/bag-court.webp (+ -thumb)",
+  "title": "Early Morning in BAGESHWORI Temple Nepalgunj",
+  "page": "https://www.youtube.com/watch?v=tPDD-c4e-OI",
+  "license": "Standard YouTube licence (all rights reserved); used at the site owner's request — owner takes responsibility, will credit/remove on request",
+  "author": "JNshots (YouTube)",
+  "notes": "Partial (~132° x 31°) panorama stitched with OpenCV from a handheld pan at 102.7–119.7s; corners inpainted.",
+  "w": 2600,
+  "h": 617
  }
 ]
