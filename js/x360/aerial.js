@@ -344,7 +344,7 @@ export function addPins(places, onPick) {
     if (p.lat == null) continue;
     const x = toX(p.lon), z = toZ(p.lat);
     const el = document.createElement('button'); el.className = 'pin k-' + p.kind; el.setAttribute('aria-label', p.name);
-    el.innerHTML = `<i></i><span><b>${p.name}</b>${p.kind === 'pano' ? '<em>360°</em>' : ''}</span>`;
+    el.innerHTML = `<i></i><span><b>${p.name}</b>${p.kind === 'pano' ? `<em>${p.partial ? 'Pano' : '360°'}</em>` : ''}</span>`;
     el.onclick = e => { e.stopPropagation(); onPick(p); };
     pinsEl.appendChild(el); PINS.push({ p, el, v: new THREE.Vector3(x, p.h || 12, z) });
   }

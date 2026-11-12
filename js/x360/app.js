@@ -11,10 +11,16 @@ const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in windo
 if (TOUCH) document.documentElement.classList.add('touch');
 const byId = Object.fromEntries(PLACES.map(p => [p.id, p]));
 const clipUrl = n => `assets/videos/c/${n}.mp4`, clipPoster = n => `assets/videos/c/${n}-poster.webp`;
-const thumbOf = p => p.kind === 'pano' ? `assets/pano/${p.nodes[0].id}-thumb.webp` : p.clips ? clipPoster(p.clips[0]) : 'assets/videos/drone1-poster.webp';
+const thumbOf = p => p.nodes && p.nodes.length ? (p.nodes[0].film ? clipPoster(p.nodes[0].film) : `assets/pano/${p.nodes[0].id}-thumb.webp`) : p.clips ? clipPoster(p.clips[0]) : 'assets/videos/drone1-poster.webp';
 
+// every place gets a 'nodes' list: 360° panoramas and/or real footage views
+for (const p of PLACES) {
+  const film = (p.clips || []).map((c, i) => ({ id: `${p.id}-v${i}`, film: c, label: (p.labels || [])[i] || (i ? 'View ' + (i + 1) : 'Live'), drone: (p.droneIdx || []).includes(i) }));
+  p.nodes = [...(p.nodes || []), ...film];
+}
+const nodeThumb = n => n.film ? clipPoster(n.film) : `assets/pano/${n.id}-thumb.webp`;
 // ── bearings from BP Chowk sky node to other places (real compass directions)
-for (const p of PLACES) if (p.kind === 'pano') for (const n of p.nodes) {
+for (const p of PLACES) for (const n of p.nodes) if (!n.film) {
   n.hots = [];
   for (const l of n.links || []) {
     if (l.to) {
@@ -37,7 +43,7 @@ if (Q.has('h')) tod.forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.h 
 
 // ── drawer
 const drawer = $('#drawer');
-$('#drawer ul').innerHTML = PLACES.map(p => `<li><button data-id="${p.id}"><img src="${thumbOf(p)}" alt="" loading="lazy"><span><b>${p.name}</b><small>${p.dev}</small></span>${p.kind === 'pano' ? '<em class="tag p">360°</em>' : p.kind === 'film' ? '<em class="tag">Film</em>' : '<em class="tag">Aerial</em>'}</button></li>`).join('');
+$('#drawer ul').innerHTML = PLACES.map(p => `<li><button data-id="${p.id}"><img src="${thumbOf(p)}" alt="" loading="lazy"><span><b>${p.name}</b><small>${p.dev}</small></span>${p.kind === 'pano' ? `<em class="tag p">${p.partial ? 'Pano' : '360°'}</em>` : p.kind === 'film' ? '<em class="tag">Film</em>' : '<em class="tag">Aerial</em>'}</button></li>`).join('');
 $('#listBtn').onclick = e => { e.stopPropagation(); drawer.classList.toggle('on'); };
 drawer.onclick = e => { const b = e.target.closest('button[data-id]'); if (!b) return; drawer.classList.remove('on'); go(byId[b.dataset.id]); };
 addEventListener('pointerdown', e => { if (!drawer.contains(e.target) && e.target !== $('#listBtn')) drawer.classList.remove('on'); });
@@ -64,33 +70,46 @@ function setTitle(p) {
 }
 function nodeStrip(p, cur) {
   nodesEl.className = ''; nodesEl.innerHTML = '';
-  if (p.kind === 'pano' && p.nodes.length > 1) {
-    for (const n of p.nodes) {
-      const b = document.createElement('button'); b.className = n.id === cur ? 'on' : ''; b.setAttribute('aria-label', n.label);
-      b.innerHTML = `<img src="assets/pano/${n.id}-thumb.webp" alt=""><span>${n.label}</span>`;
-      b.onclick = () => showNode(p, n); nodesEl.appendChild(b);
-    }
-  } else if (p.kind === 'film' && p.clips.length > 1) {
-    nodesEl.className = 'dots';
-    p.clips.forEach((c, i) => { const b = document.createElement('button'); b.className = i === cur ? 'on' : ''; b.setAttribute('aria-label', 'Clip ' + (i + 1)); b.onclick = () => playClip(p, i); nodesEl.appendChild(b); });
+  if (p.nodes.length > 1) for (const n of p.nodes) {
+    const b = document.createElement('button'); b.className = n.id === cur ? 'on' : ''; b.setAttribute('aria-label', n.label);
+    b.innerHTML = `<img src="${nodeThumb(n)}" alt=""><span>${n.label}</span>`;
+    b.onclick = () => showNode(p, n); nodesEl.appendChild(b);
   }
+  // nearby places (Street-View style jumps)
+  for (const q of nearby(p)) {
+    const b = document.createElement('button'); b.className = 'near'; b.setAttribute('aria-label', q.name);
+    b.innerHTML = `<img src="${thumbOf(q)}" alt=""><span>${q.name} →</span>`;
+    b.onclick = () => { if (q.kind === 'aerial') back().then(() => go(q)); else enterPlace(q, true); }; nodesEl.appendChild(b);
+  }
+}
+function nearby(p) {
+  if (p.lat == null) return [byId.bp];
+  return PLACES.filter(q => q !== p && q.lat != null && q.kind !== 'aerial').map(q => [q, Math.hypot(toX(q.lon) - toX(p.lon), toZ(q.lat) - toZ(p.lat))]).sort((a, b) => a[1] - b[1]).slice(0, 2).map(x => x[0]);
 }
 async function showNode(p, n, first) {
   state.node = n; nodeStrip(p, n.id);
   history.replaceState(null, '', '#' + n.id);
+  place.classList.toggle('film', !!n.film);
+  ptag.textContent = n.film ? '' : n.span ? 'Pano' : '360°'; ptag.className = '';
+  if (n.film) {
+    pano.stop(); panoCanvas.style.display = 'none'; $('#hots').style.display = 'none';
+    film.classList.add('on'); playClip(p, n); return;
+  }
+  film.classList.remove('on'); vfg.pause(); vbg.pause(); vfg.removeAttribute('src'); vbg.removeAttribute('src');
+  panoCanvas.style.display = ''; $('#hots').style.display = '';
+  pano.start();
   await pano.show(n, { look: n.start, cut: first });
   pano.setAuto(false);
-  if (!first) pano.playIntro({ y0: n.start[0] - 14, y1: n.start[0], p1: n.start[1], f0: 84, f1: 72, dur: 4.5 });
+  if (!first) pano.playIntro({ y0: n.start[0] - 14, y1: n.start[0], p1: n.start[1], f0: 84, f1: n.fov || 72, dur: 4.5 });
 }
-function playClip(p, i) {
-  const c = p.clips[i]; nodeStrip(p, i);
+function playClip(p, n) {
+  const c = n.film;
   vfg.poster = clipPoster(c); vbg.poster = clipPoster(c);
   vfg.src = clipUrl(c); vbg.src = clipUrl(c);
-    film.classList.remove('pan'); filmPan.x = 50; vfg.style.objectPosition = ''; film.classList.toggle('drone', !!p.drone && i === 0);
-  vfg.onloadedmetadata = () => { const va = vfg.videoWidth / vfg.videoHeight, sa = innerWidth / innerHeight; filmPan.on = va > sa * 1.25; film.classList.toggle('pan', filmPan.on); };
+  film.classList.remove('pan'); filmPan.x = 50; vfg.style.objectPosition = ''; film.classList.toggle('drone', !!n.drone);
+  vfg.onloadedmetadata = () => { const va = vfg.videoWidth / vfg.videoHeight, sa = innerWidth / innerHeight; filmPan.on = !n.drone && va > sa * 1.25; film.classList.toggle('pan', filmPan.on); };
   const pl = v => v.play().catch(() => { });
   pl(vfg); pl(vbg);
-  history.replaceState(null, '', '#' + p.id);
 }
 // wide footage on a narrow (portrait) screen: fill the screen and let the user drag across it
 const filmPan = { on: false, x: 50, v: 0.6, drag: null, idle: 0 };
@@ -104,21 +123,13 @@ pano.onHot(h => {
 });
 async function enterPlace(p, direct) {
   state.p = p; document.body.classList.add('inplace');
-  place.classList.toggle('film', p.kind === 'film');
-  ptag.textContent = p.kind === 'pano' ? '360°' : 'Real footage'; ptag.className = p.kind === 'pano' ? '' : 'f';
   setTitle(p);
-  if (p.kind === 'pano') {
-    film.classList.remove('on'); vfg.pause(); vbg.pause(); vfg.removeAttribute('src'); vbg.removeAttribute('src');
-    panoCanvas.style.display = ''; $('#hots').style.display = '';
-    const n = (Q.get('node') && p.nodes.find(n => n.id === Q.get('node'))) || p.nodes[0];
-    pano.start();
-    await showNode(p, n, !direct);
+  const n = (Q.get('node') && p.nodes.find(n => n.id === Q.get('node'))) || p.nodes[0]; Q.delete('node');
+  await showNode(p, n, !direct);
+  if (!n.film) {
     // cinematic entry: slow push-in with a gentle yaw drift; any drag cancels it
-    pano.playIntro({ y0: n.start[0] - 28, y1: n.start[0] + 6, p0: direct ? n.start[1] - 6 : -40, p1: n.start[1], f0: direct ? 88 : 108, f1: 72, dur: direct ? 6 : 8 });
+    pano.playIntro({ y0: n.start[0] - (n.range ? 10 : 28), y1: n.start[0] + (n.range ? 4 : 6), p0: direct ? n.start[1] - 6 : -40, p1: n.start[1], f0: direct ? 88 : 108, f1: n.fov || 72, dur: direct ? 6 : 8 });
     $('#phint').classList.add('on'); setTimeout(() => $('#phint').classList.remove('on'), 3200);
-  } else {
-    pano.stop(); panoCanvas.style.display = 'none'; $('#hots').style.display = 'none';
-    film.classList.add('on'); playClip(p, 0);
   }
   place.classList.add('on'); place.setAttribute('aria-hidden', 'false');
   setEnabled(false);
@@ -138,7 +149,7 @@ async function go(p) {
     return;
   }
   setMinDistance(500);
-  if (p.kind === 'pano') pano.preload(p.nodes[0].id).catch(() => { });
+  if (p.nodes[0] && !p.nodes[0].film) pano.preload(p.nodes[0].id).catch(() => { });
   const dur = SHOT ? 0.01 : 2.4;
   const fly = flyTo(x, z, { dist: 640, polar: 0.32, dur, lock: true });
   await sleep(dur * 1000 - 800); $('#flash').classList.add('on');

@@ -174,3 +174,7 @@ body.inplace #tourBtn.on{z-index:13;bottom:auto;top:16px;left:auto;right:200px}
   body.inplace #tourBtn.on{right:auto;left:100px;top:12px}
   #hint{top:58px}
 }
+
+#nodes button.near{opacity:.8;outline:1px dashed rgba(240,194,122,.55);outline-offset:-1px}
+#nodes button.near span{color:#f6d9a8}
+#nodes button.near:hover{opacity:1}

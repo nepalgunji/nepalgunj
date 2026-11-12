@@ -165,6 +165,7 @@ export function createPano(canvas, hotLayer) {
     if (canvas.width !== Math.round(W * renderer.getPixelRatio()) || canvas.height !== Math.round(H * renderer.getPixelRatio())) renderer.setSize(W, H, false);
     view.aspect = W / H; view.fov = W < H ? Math.min(100, fov * 1.25) : fov; view.updateProjectionMatrix();
     if (range) { // partial (stitched) panorama: keep the view inside the real imagery
+      view.fov = Math.min(view.fov, (range[3] - range[2]) * 0.98); view.updateProjectionMatrix();
       const hf = Math.atan(Math.tan(view.fov * DEG / 2) * view.aspect) / DEG, vf = view.fov / 2;
       const [y0, y1, p0, p1] = range; const span = y1 - y0;
       if (span < hf * 2) yaw = (y0 + y1) / 2; else { if (yaw < y0 + hf) { yaw = y0 + hf; autoDir = 1; vYaw = 0; } if (yaw > y1 - hf) { yaw = y1 - hf; autoDir = -1; vYaw = 0; } }
