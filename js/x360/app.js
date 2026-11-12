@@ -10,7 +10,10 @@ const sleep = ms => new Promise(r => setTimeout(r, SHOT ? 0 : ms));
 const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (TOUCH) document.documentElement.classList.add('touch');
 const byId = Object.fromEntries(PLACES.map(p => [p.id, p]));
-const clipUrl = n => `assets/videos/c/${n}.mp4`, clipPoster = n => `assets/videos/c/${n}-poster.webp`;
+const NET = navigator.connection || {}, SLOW = NET.saveData || /2g|3g/.test(NET.effectiveType || '');
+// desktop/tablet (or a fast high-DPR phone) gets the HD encode, phones the 720p one
+const HD = !SLOW && (Math.min(innerWidth, innerHeight) >= 700 || ((devicePixelRatio || 1) >= 2 && (NET.downlink || 0) >= 10));
+const clipUrl = n => `assets/videos/c/${n}${HD ? '-hd' : ''}.mp4`, clipPoster = n => `assets/videos/c/${n}-poster.webp`;
 const thumbOf = p => p.nodes && p.nodes.length ? (p.nodes[0].film ? clipPoster(p.nodes[0].film) : `assets/pano/${p.nodes[0].id}-thumb.webp`) : p.clips ? clipPoster(p.clips[0]) : 'assets/videos/drone1-poster.webp';
 
 // every place gets a 'nodes' list: 360° panoramas and/or real footage views
@@ -208,7 +211,7 @@ function climLoop() {
   const P = pano.U; P.uFog.value = C.fog * 0.55; P.uHeat.value = C.heat; P.uDesat.value = C.desat; P.uCool.value = C.cool; P.uWarm.value = C.warm; P.uDark.value = C.dark + flash * C.light * -0.4; P.uWet.value = C.wet;
   letter += ((letterT) - letter) * (SHOT ? 1 : 1 - Math.pow(0.02, dt));
   const S = fx.S; S.rain = C.rain; S.fog = C.fog * (state.p ? 0.55 : 0.45); S.drops = C.drops * (state.p ? 1 : 0.5); S.flash = flash * C.light; S.night = night; S.warm = C.heat * 0.8;
-  S.grain = MOBILE ? 0.035 : 0.05; S.letter = letter; S.pan = state.p ? pano.yaw / 90 : 0;
+  S.grain = state.p && film.classList.contains('on') ? 0.012 : MOBILE ? 0.035 : 0.05; // keep real footage crisp S.letter = letter; S.pan = state.p ? pano.yaw / 90 : 0;
   fx.render();
   if (!SHOT) requestAnimationFrame(climLoop);
 }

@@ -100,7 +100,7 @@ export function createPano(canvas, hotLayer) {
     setHots(node.hots || []);
     range = node.range || null;
     stopVideo();
-    if (node.video) { const mob = Math.min(innerWidth, innerHeight) < 600 || maxTex < 4096; playVideo(`assets/pano/v/${node.id}-${mob ? 1920 : 2880}.mp4`, (node.yaw0 || 0) * DEG); return; }
+    if (node.video) { const net = navigator.connection || {}, slow = net.saveData || /2g|3g/.test(net.effectiveType || ''); const mob = Math.min(innerWidth, innerHeight) < 600 || maxTex < 4096 || slow; const big = !mob && Math.max(screen.width, screen.height) * Math.min(devicePixelRatio || 1, 2) >= 1800 && !((net.downlink || 99) < 6); playVideo(`assets/pano/v/${node.id}-${mob ? 1920 : big ? 3840 : 2880}.mp4`, (node.yaw0 || 0) * DEG); return; }
     if (big && maxTex >= 4096) load(urlFor(node.id, true)).then(t => { if (U.tA.value === small && !U.uMix.value) U.tA.value = t; }).catch(() => { });
   }
   function tween(d, f) { return new Promise(r => { const t0 = performance.now(); const st = () => { const k = clamp((performance.now() - t0) / (d * 1000), 0, 1); f(k * k * (3 - 2 * k)); if (k < 1) requestAnimationFrame(st); else r(); }; st(); }); }
