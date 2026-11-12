@@ -270,13 +270,13 @@ const MIN_D = MOBILE ? 950 : 850, MAX_D = 5200;
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = MIN_D; controls.maxDistance = MAX_D;
-controls.minPolarAngle = 0.12; controls.maxPolarAngle = 1.08; // keep ≥ ~28° above the horizon
+controls.minPolarAngle = 0.12; controls.maxPolarAngle = MOBILE ? 0.98 : 1.08; // keep ≥ ~28° above the horizon
 controls.rotateSpeed = 0.55; controls.zoomSpeed = 0.9; controls.panSpeed = 0.9;
 controls.screenSpacePanning = false; controls.zoomToCursor = true;
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 controls.autoRotate = !SHOT; controls.autoRotateSpeed = 0.25;
 controls.target.set(60, 0, 80);
-camera.position.set(60 - 1500, 1250, 80 + 1700);
+camera.position.set(60 - 1150, 1500, 80 + 1300);
 let idleT = 0; let flying = null;
 controls.addEventListener('start', () => { controls.autoRotate = false; idleT = 0; if (flying && !flying.lock) flying = null; AERIAL.onInteract && AERIAL.onInteract(); });
 controls.addEventListener('end', () => { idleT = 0; });
