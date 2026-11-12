@@ -19,7 +19,7 @@ export const PLACES = [
   { id: 'tribhuvan', name: 'Tribhuvan Chowk', dev: 'त्रिभुवन चोक', line: 'Where every road meets', lat: 28.057813, lon: 81.623504, h: 14, kind: 'film',
     clips: ['yt-tribhuvan-street-walk', 'pc-tribhuvan-chowk-2026', 'pc-tribhuvan-chowk-tihar'] },
   { id: 'dhamboji', name: 'Dhamboji Chowk', dev: 'धम्बोजी चोक', line: 'The bazaar that never sleeps', lat: 28.066889, lon: 81.626325, h: 14, kind: 'film',
-    clips: ['yt-pradip-dhamboji-bp-drone', 'bon-dhamboji-chowk'] },
+    clips: ['dhamboji-drone', 'yt-pradip-dhamboji-bp-drone', 'bon-dhamboji-chowk'], drone: true },
   { id: 'qfx', name: 'QFX Cinemas', dev: 'क्यूएफएक्स', line: 'Step inside', lat: 28.065644, lon: 81.628453, h: 22, kind: 'pano',
     nodes: [
       { id: 'qfx-lobby', label: 'Lobby', yaw0: null, start: [180, 0], links: [{ node: 'qfx-stairs', u: 0.205, v: 0.47 }] },

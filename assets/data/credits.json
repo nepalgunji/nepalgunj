@@ -1093,5 +1093,14 @@
   "notes": "Equirectangular 360° walkthrough video (4K). Still frames at 9s, 31s, 72s.",
   "w": 3840,
   "h": 1920
+ },
+ {
+  "key": "dhamboji-drone",
+  "file": "assets/videos/c/dhamboji-drone.mp4",
+  "title": "Dhamboji Chowk golden-hour drone video (site owner's own footage)",
+  "page": "local: videos/raw/dhamboji.mp4",
+  "license": "Owner-supplied",
+  "author": "Site owner",
+  "notes": "Clean segment 0:08–0:28, no title/end card, re-encoded 1080x1920 H.264 30fps."
  }
 ]
