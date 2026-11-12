@@ -6,7 +6,7 @@
 export const PLACES = [
   { id: 'bp', name: 'BP Chowk', dev: 'बीपी चोक', line: 'Surkhet Road from the sky', lat: 28.0606, lon: 81.6193, h: 60, kind: 'pano',
     nodes: [
-      { id: 'bp-sky', label: 'Sky', yaw0: 184, alt: 140, start: [24, -12],
+      { id: 'bp-sky', label: 'Sky', yaw0: 184, video: true, alt: 140, start: [24, -12],
         links: [{ to: 'bageshwori' }, { to: 'hanuman' }, { to: 'tribhuvan' }, { to: 'dhamboji' }, { to: 'ranitalau' }, { to: 'bheri' }, { to: 'qfx' }] },
       { id: 'bp-roof', label: 'Rooftops', yaw0: null, start: [180, -14] },
       { id: 'bp-low', label: 'Low', yaw0: null, start: [180, -10] },

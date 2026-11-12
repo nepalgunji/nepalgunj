@@ -11,13 +11,14 @@ export function createPano(canvas, hotLayer) {
   const scene = new THREE.Scene(); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const U = {
     tA: { value: null }, tB: { value: null }, uMix: { value: 0 }, uYaw0A: { value: 0 }, uYaw0B: { value: 0 },
-    uInvPV: { value: new THREE.Matrix4() }, uFade: { value: 1 }, uGrade: { value: 0 },
+    uInvPV: { value: new THREE.Matrix4() }, uFade: { value: 1 }, uGrade: { value: 1 }, uTime: { value: 0 },
+    uDesat: { value: 0 }, uCool: { value: 0 }, uWarm: { value: 0 }, uDark: { value: 0 }, uHeat: { value: 0 }, uFog: { value: 0 }, uWet: { value: 0 }, uNight: { value: 0 },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms: U, depthTest: false, depthWrite: false,
     vertexShader: `varying vec2 vNdc; void main(){ vNdc = position.xy; gl_Position = vec4(position.xy,0.0,1.0); }`,
     fragmentShader: `precision highp float; varying vec2 vNdc;
-      uniform sampler2D tA, tB; uniform float uMix, uYaw0A, uYaw0B, uFade, uGrade; uniform mat4 uInvPV;
+      uniform sampler2D tA, tB; uniform float uMix, uYaw0A, uYaw0B, uFade, uGrade, uTime, uDesat, uCool, uWarm, uDark, uHeat, uFog, uWet, uNight; uniform mat4 uInvPV;
       const float PI = 3.14159265;
       vec3 samp(sampler2D t, vec3 d, float yaw0){
         float az = atan(d.x, -d.z);            // 0 = north / forward, clockwise
@@ -26,14 +27,28 @@ export function createPano(canvas, hotLayer) {
       }
       void main(){
         vec4 p = uInvPV * vec4(vNdc, 1.0, 1.0); vec3 d = normalize(p.xyz / p.w);
+        // summer heat shimmer near the horizon
+        if (uHeat > 0.01) { float hb = smoothstep(0.25, 0.0, abs(d.y + 0.05));
+          d.x += uHeat*hb*0.0025*sin(d.y*420.0 + uTime*7.0 + d.x*30.0); d.y += uHeat*hb*0.0018*sin(d.x*260.0 - uTime*5.0); d = normalize(d); }
         vec3 c = samp(tA, d, uYaw0A);
         if (uMix > 0.001) c = mix(c, samp(tB, d, uYaw0B), uMix);
-        // gentle cinematic grade + vignette
         float l = dot(c, vec3(0.2126,0.7152,0.0722));
-        c = mix(c, smoothstep(0.0, 1.0, c), 0.25*uGrade);
-        c = mix(vec3(l), c, 1.0 + 0.08*uGrade);
-        float vg = smoothstep(1.55, 0.55, length(vNdc*vec2(0.85,1.0)));
-        c *= mix(0.78, 1.0, vg);
+        // climate grade
+        c = mix(c, vec3(l), uDesat);
+        c *= mix(vec3(1.0), vec3(0.86, 0.95, 1.1), uCool);
+        c *= mix(vec3(1.0), vec3(1.1, 1.0, 0.84), uWarm);
+        c = mix(c, c*c*1.25, uWet*0.35);                    // wet: deeper, more contrast
+        c *= 1.0 - 0.55*uDark;
+        // fog: thicker toward the horizon and below it (distance), lighter overhead
+        float fh = 1.0 - smoothstep(-0.05, 0.55, d.y);
+        float fn = 0.75 + 0.25*sin(d.x*6.0 + uTime*0.05) * sin(d.z*5.0 - uTime*0.04);
+        vec3 fogC = mix(vec3(0.78, 0.8, 0.82), vec3(0.18, 0.2, 0.24), uNight);
+        c = mix(c, fogC*(1.0-0.4*uDark), clamp(uFog * (0.25 + 0.6*fh) * fn, 0.0, 0.9));
+        // gentle cinematic grade + vignette
+        c = mix(c, smoothstep(0.0, 1.0, c), 0.22*uGrade);
+        c *= mix(vec3(1.0), vec3(1.03, 1.0, 0.96), 0.5*uGrade);
+        float vg = smoothstep(1.6, 0.5, length(vNdc*vec2(0.85,1.0)));
+        c *= mix(0.74, 1.0, vg);
         gl_FragColor = vec4(c * uFade, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -42,6 +57,18 @@ export function createPano(canvas, hotLayer) {
   const view = new THREE.PerspectiveCamera(75, 1, 0.1, 10);
   let yaw = 0, pitch = 0, fov = 75, vYaw = 0, vPitch = 0, tFov = 75, auto = !SHOT, idle = 0;
   let gyro = null, gyroBase = null, enabled = false, raf = 0, last = performance.now();
+  let intro = null; // cinematic entry move: { t, dur, y0, y1, p0, p1, f0, f1 }
+  let video = null, vtex = null;
+  function stopVideo() { if (video) { video.pause(); video.removeAttribute('src'); video.load(); video = null; } if (vtex) { vtex.dispose(); vtex = null; } }
+  function playVideo(url, yaw0) {
+    stopVideo(); if (SHOT) return;
+    const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.crossOrigin = 'anonymous'; v.preload = 'auto';
+    v.src = url; video = v;
+    const go = () => { if (video !== v) return; vtex = new THREE.VideoTexture(v); vtex.colorSpace = THREE.SRGBColorSpace; vtex.generateMipmaps = false; vtex.minFilter = THREE.LinearFilter; vtex.wrapS = THREE.RepeatWrapping;
+      U.tB.value = vtex; U.uYaw0B.value = yaw0; U.uMix.value = 0; tween(1.2, k => U.uMix.value = k).then(() => { if (video !== v) return; U.tA.value = vtex; U.uYaw0A.value = yaw0; U.uMix.value = 0; }); };
+    v.addEventListener('playing', go, { once: true });
+    v.play().catch(() => { });
+  }
   const hots = []; let onHot = null;
   const loader = new THREE.TextureLoader(); const cache = new Map();
   function load(url) {
@@ -63,6 +90,8 @@ export function createPano(canvas, hotLayer) {
     } else { U.tA.value = small; U.uYaw0A.value = (node.yaw0 || 0) * DEG; }
     if (opts.look) { yaw = opts.look[0]; pitch = opts.look[1]; }
     setHots(node.hots || []);
+    stopVideo();
+    if (node.video) { const mob = Math.min(innerWidth, innerHeight) < 600 || maxTex < 4096; playVideo(`assets/pano/v/${node.id}-${mob ? 1920 : 2880}.mp4`, (node.yaw0 || 0) * DEG); return; }
     if (big && maxTex >= 4096) load(urlFor(node.id, true)).then(t => { if (U.tA.value === small && !U.uMix.value) U.tA.value = t; }).catch(() => { });
   }
   function tween(d, f) { return new Promise(r => { const t0 = performance.now(); const st = () => { const k = clamp((performance.now() - t0) / (d * 1000), 0, 1); f(k * k * (3 - 2 * k)); if (k < 1) requestAnimationFrame(st); else r(); }; st(); }); }
@@ -77,7 +106,7 @@ export function createPano(canvas, hotLayer) {
   }
   // ── input
   let drag = null; const pts = new Map();
-  canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = { x: e.clientX, y: e.clientY, t: performance.now() }; vYaw = vPitch = 0; auto = false; idle = 0; if (pts.size === 2) pinch0 = null; });
+  canvas.addEventListener('pointerdown', e => { intro = null; canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = { x: e.clientX, y: e.clientY, t: performance.now() }; vYaw = vPitch = 0; auto = false; idle = 0; if (pts.size === 2) pinch0 = null; });
   let pinch0 = null;
   canvas.addEventListener('pointermove', e => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -89,7 +118,7 @@ export function createPano(canvas, hotLayer) {
   });
   const up = e => { pts.delete(e.pointerId); if (pts.size === 0) drag = null; pinch0 = null; };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('wheel', e => { e.preventDefault(); tFov = clamp(tFov * Math.exp(e.deltaY * 0.0012), 30, 100); auto = false; idle = 0; }, { passive: false });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); intro = null; tFov = clamp(tFov * Math.exp(e.deltaY * 0.0012), 30, 100); auto = false; idle = 0; }, { passive: false });
   addEventListener('keydown', e => { if (!enabled) return; const s = 6; if (e.key === 'ArrowLeft') yaw -= s; if (e.key === 'ArrowRight') yaw += s; if (e.key === 'ArrowUp') pitch = clamp(pitch + s, -85, 85); if (e.key === 'ArrowDown') pitch = clamp(pitch - s, -85, 85); if (e.key === '+' || e.key === '=') tFov = clamp(tFov - 8, 30, 100); if (e.key === '-') tFov = clamp(tFov + 8, 30, 100); auto = false; idle = 0; });
   // gyro
   function onOri(e) { if (e.alpha == null) return; gyro = [e.alpha, e.beta, e.gamma]; }
@@ -112,10 +141,15 @@ export function createPano(canvas, hotLayer) {
   const _v = new THREE.Vector3();
   function render() {
     const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (gyro) gyroLook();
+    U.uTime.value = now / 1000;
+    if (intro && !drag && !gyro) {
+      intro.t = Math.min(1, intro.t + dt / intro.dur); const k = 1 - Math.pow(1 - intro.t, 3), k2 = intro.t * intro.t * (3 - 2 * intro.t);
+      yaw = intro.y0 + (intro.y1 - intro.y0) * k2; pitch = intro.p0 + (intro.p1 - intro.p0) * k; fov = tFov = intro.f0 + (intro.f1 - intro.f0) * k;
+      if (intro.t >= 1) { intro = null; idle = 0; }
+    } else if (gyro) gyroLook();
     else if (!drag) {
       yaw += vYaw; pitch = clamp(pitch + vPitch, -85, 85); vYaw *= Math.pow(0.04, dt); vPitch *= Math.pow(0.04, dt);
-      idle += dt; if (idle > 6 && !SHOT) auto = true; if (auto) yaw += dt * 2.2;
+      idle += dt; if (idle > 6 && !SHOT) auto = true; if (auto) yaw += dt * 2.0 * Math.min(1, (idle - 6) / 3 + 0.001);
     }
     fov += (tFov - fov) * (SHOT ? 1 : 1 - Math.pow(0.002, dt));
     const W = canvas.clientWidth, H = canvas.clientHeight;
@@ -134,12 +168,13 @@ export function createPano(canvas, hotLayer) {
     if (enabled && !SHOT) raf = requestAnimationFrame(render);
   }
   return {
+    U, playIntro(o) { if (SHOT) { yaw = o.y1; pitch = o.p1; fov = tFov = o.f1; return; } intro = { t: 0, dur: o.dur || 7, y0: o.y0 ?? yaw, y1: o.y1, p0: o.p0 ?? pitch, p1: o.p1, f0: o.f0 ?? fov, f1: o.f1 ?? 72 }; auto = false; idle = 0; },
     show, render, enableGyro, disableGyro, setFade: f => U.uFade.value = f, setGrade: g => U.uGrade.value = g,
     get yaw() { return yaw; }, set yaw(v) { yaw = v; }, get pitch() { return pitch; }, set pitch(v) { pitch = v; },
     get fov() { return tFov; }, set fov(v) { tFov = v; }, snapFov(v) { fov = tFov = v; },
     onHot(f) { onHot = f; }, preload: id => load(urlFor(id, false)),
     start() { enabled = true; last = performance.now(); cancelAnimationFrame(raf); if (!SHOT) raf = requestAnimationFrame(render); },
-    stop() { enabled = false; cancelAnimationFrame(raf); disableGyro(); },
+    stop() { enabled = false; cancelAnimationFrame(raf); disableGyro(); stopVideo(); intro = null; },
     get gyroOn() { return !!gyro; }, setAuto: a => { auto = a; idle = 0; },
   };
 }

@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { makeTier, IMAGERY_GLSL, toX, toZ } from '../w3d/imagery.js';
 import { loadCity, buildCity, roadGlow, buildWater, rng } from '../w3d/city.js';
@@ -22,6 +23,8 @@ const $ = s => document.querySelector(s);
 // ───────── renderer / scene
 const canvas = $('#gl');
 export const AERIAL = { ready: false };
+const BASE = { fog: 0.0002, sun: 3, exp: 0.9, env: 0.5 };
+export const CL = { fog: 0, rain: 0, heat: 0, desat: 0, cool: 0, warm: 0, dark: 0, wet: 0, flash: 0 };
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: SHOT });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
@@ -114,15 +117,15 @@ function applyTime(hour) {
   sunDir.set(Math.cos(e) * Math.sin(a), Math.sin(e), -Math.cos(e) * Math.cos(a));
   SU.sunPosition.value.copy(sunDir);
   const night = smooth(-1, -9, el); U.uNight.value = night;
-  scene.fog.density = lerp(0.00015, 0.00024, smooth(10, 0, Math.abs(el)));
+  BASE.fog = lerp(0.00015, 0.00024, smooth(10, 0, Math.abs(el)));
   const s = ramp(SUNC, el);
-  if (el > -4) { sunL.color.setRGB(s[0], s[1], s[2]); sunL.intensity = s[3] * 1.25; }
+  if (el > -4) { sunL.color.setRGB(s[0], s[1], s[2]); sunL.intensity = s[3] * 1.25; BASE.sun = sunL.intensity; }
   else { // moonlight
-    sunL.color.setRGB(0.55, 0.65, 1.0); sunL.intensity = 0.16;
+    sunL.color.setRGB(0.55, 0.65, 1.0); sunL.intensity = 0.16; BASE.sun = 0.16;
   }
   const h = ramp(HEMI, el); hemi.color.setRGB(h[0], h[1], h[2]); hemi.groundColor.setRGB(h[0] * 0.45, h[1] * 0.38, h[2] * 0.3); hemi.intensity = h[3];
   stars.material.opacity = smooth(-6, -14, el) * 0.9;
-  renderer.toneMappingExposure = lerp(0.82, 1.25, night) * (el > 0 && el < 8 ? 0.95 : 1);
+  BASE.exp = lerp(0.82, 1.25, night) * (el > 0 && el < 8 ? 0.95 : 1);
   SU.rayleigh.value = lerp(1.6, 0.6, smooth(10, -4, el));
   // env map (cached per 3°)
   const key = Math.round(el / 3);
@@ -133,7 +136,7 @@ function applyTime(hour) {
     env = pmrem.fromScene(envScene, 0.04).texture; envCache.set(key, env);
   }
   scene.environment = env;
-  scene.environmentIntensity = lerp(0.55, 0.3, night);
+  BASE.env = lerp(0.55, 0.3, night);
   bloom && (bloom.strength = lerp(0.15, 0.45, night), bloom.threshold = lerp(1.6, 1.1, night), bloom.radius = 0.35);
 }
 
@@ -170,7 +173,7 @@ ground.receiveShadow = true; scene.add(ground);
 }
 
 // ───────── post
-let composer, bloom;
+let composer, bloom, grade;
 function setupPost() {
   const rt = new THREE.WebGLRenderTarget(innerWidth * PR, innerHeight * PR, { type: THREE.HalfFloatType, samples: MOBILE ? 0 : 4 });
   composer = new EffectComposer(renderer, rt); composer.setPixelRatio(PR); composer.setSize(innerWidth, innerHeight);
@@ -185,6 +188,23 @@ function setupPost() {
   bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.3, 0.55, 1.4);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  grade = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uDesat: { value: 0 }, uCool: { value: 0 }, uWarm: { value: 0 }, uDark: { value: 0 }, uWet: { value: 0 }, uHeat: { value: 0 }, uFlash: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float uT, uDesat, uCool, uWarm, uDark, uWet, uHeat, uFlash; varying vec2 vUv;
+      void main(){ vec2 uv = vUv;
+        if (uHeat > 0.01) { float hb = smoothstep(0.35, 0.75, uv.y) * smoothstep(1.0, 0.7, uv.y); uv.x += uHeat*hb*0.0016*sin(uv.y*380.0 + uT*6.0); uv.y += uHeat*hb*0.0011*sin(uv.x*240.0 - uT*4.5); }
+        vec3 c = texture2D(tDiffuse, uv).rgb; float l = dot(c, vec3(0.2126,0.7152,0.0722));
+        c = mix(c, vec3(l), uDesat);
+        c *= mix(vec3(1.0), vec3(0.86, 0.95, 1.1), uCool);
+        c *= mix(vec3(1.0), vec3(1.1, 1.0, 0.84), uWarm);
+        c = mix(c, c*c*1.3, uWet*0.3);
+        c *= 1.0 - 0.5*uDark;
+        c = mix(c, smoothstep(0.0, 1.0, c), 0.18);   // gentle filmic S-curve
+        c += uFlash * vec3(0.55, 0.6, 0.7);
+        gl_FragColor = vec4(c, 1.0); }`,
+  });
+  composer.addPass(grade);
 }
 setupPost();
 function resize() {
@@ -418,6 +438,12 @@ let fpsAcc = 0, fpsN = 0, adapt = 0, lastFrame = performance.now(), focusT = 0;
 function frame() {
   const dt = Math.min(0.05, clock.getDelta()); const time = clock.elapsedTime; U.uTime.value = time;
   if (AERIAL.paused && !SHOT) { requestAnimationFrame(frame); return; }
+  // climate (applied on top of the time-of-day lighting)
+  scene.fog.density = BASE.fog * (1 + 3.2 * CL.fog + 1.2 * CL.rain);
+  sunL.intensity = BASE.sun * (1 - 0.65 * Math.max(CL.fog, CL.rain) + 0.25 * CL.heat);
+  renderer.toneMappingExposure = BASE.exp * (1 - 0.1 * CL.rain + 0.12 * CL.heat + 0.05 * CL.fog) + CL.flash * 0.8;
+  scene.environmentIntensity = BASE.env * (1 + 0.5 * CL.fog);
+  if (grade) { const g = grade.uniforms; g.uT.value = time; g.uDesat.value = CL.desat; g.uCool.value = CL.cool; g.uWarm.value = CL.warm; g.uDark.value = CL.dark; g.uWet.value = CL.wet; g.uHeat.value = CL.heat; g.uFlash.value = CL.flash; }
   hour += (hourTarget - hour) * (SHOT ? 1 : 1 - Math.pow(0.25, dt));
   if (Math.abs(hourTarget - hour) < 0.002) hour = hourTarget;
   applyTime(hour);
@@ -438,6 +464,7 @@ function frame() {
   probeHorizon(SHOT);
   fogNow.lerp(fogTarget, SHOT ? 1 : 0.08);
   const nf = U.uNight.value; scene.fog.color.copy(fogNow).multiplyScalar(lerp(0.92, 1.0, nf));
+  scene.fog.color.lerp(_fogW.setRGB(0.66, 0.68, 0.7).multiplyScalar(lerp(1, 0.18, nf)), CL.fog * 0.7).lerp(_fogR.setRGB(0.36, 0.39, 0.43).multiplyScalar(lerp(1, 0.25, nf)), CL.rain * 0.6);
   if (nf > 0.5) scene.fog.color.lerp(_cityGlow, (nf - 0.5) * 0.3);
   hills.material.color.copy(scene.fog.color).multiplyScalar(0.8).lerp(_hillBase, 0.12);
   updatePins();
@@ -446,8 +473,8 @@ function frame() {
   if (!SHOT) { fpsAcc += dt; fpsN++; if (fpsAcc > 2) { const fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; if (fps < 32 && PR > 0.8 && adapt < 4) { PR = Math.max(0.8, PR - 0.25); adapt++; renderer.setPixelRatio(PR); composer.setPixelRatio(PR); resize(); } } }
   if (!SHOT) requestAnimationFrame(frame);
 }
-const _v = new THREE.Vector3();
-Object.assign(AERIAL, { scene, camera, controls, U, render: () => frame(), flyTo, setHour, toX, toZ,
+const _v = new THREE.Vector3(); const _fogW = new THREE.Color(), _fogR = new THREE.Color();
+Object.assign(AERIAL, { CL, scene, camera, controls, U, render: () => frame(), flyTo, setHour, toX, toZ,
   view: (tx, tz, dist, polar, theta) => { controls.target.set(tx, 0, tz); _sph.set(dist, polar, theta); camera.position.copy(controls.target).add(_o.setFromSpherical(_sph)); camera.lookAt(controls.target); controls.update(); } });
 export function start() {
   init().catch(e => { console.error(e); AERIAL.ready = true; AERIAL.onReady && AERIAL.onReady(); });
