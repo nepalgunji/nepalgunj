@@ -34,13 +34,14 @@ function canopyGeo(seed) {
   return out;
 }
 
-export function buildTrees(tier, buildings, excl, max, U) {
+export function buildTrees(tier, buildings, excl, max, U, water = []) {
   const { canvas, bounds } = tier; const W = canvas.width, H = canvas.height;
   const img = tier.ctx.getImageData(0, 0, W, H).data;
   // occupancy: buildings + water drawn in the same projection
   const oc = document.createElement('canvas'); oc.width = W >> 1; oc.height = H >> 1; const ox = oc.getContext('2d');
   const sx = oc.width / (bounds.z - bounds.x), sz = oc.height / (bounds.w - bounds.y);
   ox.fillStyle = '#000'; ox.fillRect(0, 0, oc.width, oc.height); ox.fillStyle = '#fff';
+  for (const w of water) { ox.beginPath(); w.forEach((p, i) => { const X = (p[0] - bounds.x) * sx, Y = (p[1] - bounds.y) * sz; i ? ox.lineTo(X, Y) : ox.moveTo(X, Y); }); ox.fill(); }
   for (const b of buildings) { ox.beginPath(); b.pts.forEach((p, i) => { const X = (p[0] - bounds.x) * sx, Y = (p[1] - bounds.y) * sz; i ? ox.lineTo(X, Y) : ox.moveTo(X, Y); }); ox.fill(); }
   const occ = ox.getImageData(0, 0, oc.width, oc.height).data;
   const R = rng(99);

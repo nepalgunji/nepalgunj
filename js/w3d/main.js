@@ -77,7 +77,7 @@ function probeHorizon(force) {
   if (L > cap) fogTarget.multiplyScalar(cap / L);
   if (force) fogNow.copy(fogTarget);
 }
-const _dir = new THREE.Vector3(); const _cityGlow = new THREE.Color(0.05, 0.035, 0.03); const _hillBase = new THREE.Color(0.04, 0.06, 0.07); const fogNow = new THREE.Color();
+const _dir = new THREE.Vector3(); const _cityGlow = new THREE.Color(0.025, 0.018, 0.016); const _hillBase = new THREE.Color(0.04, 0.06, 0.07); const fogNow = new THREE.Color();
 const sunDir = new THREE.Vector3();
 const sunL = new THREE.DirectionalLight(0xffffff, 3); sunL.castShadow = true;
 sunL.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
@@ -136,7 +136,7 @@ function applyTime(hour) {
   }
   scene.environment = env;
   scene.environmentIntensity = lerp(0.55, 0.3, night);
-  bloom && (bloom.strength = lerp(0.18, 0.85, night), bloom.threshold = lerp(1.6, 0.75, night));
+  bloom && (bloom.strength = lerp(0.15, 0.45, night), bloom.threshold = lerp(1.6, 1.1, night), bloom.radius = 0.35);
 }
 
 // ───────── ground (aerial imagery draped)
@@ -203,10 +203,10 @@ function pointsMat(color, size, add = true) {
     vertexShader: `attribute float aSeed; uniform float uSize; uniform float uScale; uniform float uTime; varying float vF;
       void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); gl_Position = projectionMatrix*mv;
         vF = 0.75 + 0.25*sin(uTime*(3.0+aSeed*5.0) + aSeed*40.0);
-        gl_PointSize = clamp(uSize * uScale / -mv.z, 1.5, 48.0); }`,
+        gl_PointSize = clamp(uSize * uScale / -mv.z, 1.5, 14.0); }`,
     fragmentShader: `uniform vec3 uColor; uniform float uOp; varying float vF;
       void main(){ vec2 c = gl_PointCoord-0.5; float d = length(c); float a = smoothstep(0.5,0.0,d); a = a*a;
-        gl_FragColor = vec4(uColor * (1.0 + 3.0*smoothstep(0.18,0.0,d)) * vF, a*uOp); }`,
+        gl_FragColor = vec4(uColor * (0.6 + 1.6*smoothstep(0.18,0.0,d)) * vF, a*uOp); }`,
     transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
 }
@@ -408,12 +408,12 @@ async function init() {
     }
     for (let i = 0; i < temple.lights.length; i += 3) { pts.push(temple.lights[i] + LM.temple[0], temple.lights[i + 1], temple.lights[i + 2] + LM.temple[1]); seeds.push(R()); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
-    diyas = new THREE.Points(g, pointsMat(new THREE.Color(1.0, 0.55, 0.18), 0.9)); diyas.frustumCulled = false; scene.add(diyas);
+    diyas = new THREE.Points(g, pointsMat(new THREE.Color(1.0, 0.55, 0.18), 1.8)); diyas.frustumCulled = false; scene.add(diyas);
   }
   // first frame with low-detail tiers, then trees once the near tier has landed
   await Promise.race([Promise.all([far.load ? tilesP : null]), new Promise(r => setTimeout(r, SHOT ? 90000 : 6000))]);
   const doneTrees = () => {
-    try { const t = buildTrees(nearT, city.buildings, excl, MOBILE ? 2500 : 7000, U); scene.add(t.group); window.__trees = t.count; } catch (e) { console.warn('trees', e); }
+    try { const t = buildTrees(nearT, city.buildings, excl, MOBILE ? 2500 : 7000, U, city.water); scene.add(t.group); window.__trees = t.count; } catch (e) { console.warn('trees', e); }
     progress.a = progress.b; setBar();
     document.body.dataset.ready = '1';
     $('#loader').classList.add('done');
@@ -436,7 +436,7 @@ function frame() {
   probeHorizon(SHOT);
   fogNow.lerp(fogTarget, SHOT ? 1 : 0.08);
   const nf = U.uNight.value; scene.fog.color.copy(fogNow).multiplyScalar(lerp(0.92, 1.0, nf));
-  if (nf > 0.5) scene.fog.color.lerp(_cityGlow, (nf - 0.5) * 0.5);
+  if (nf > 0.5) scene.fog.color.lerp(_cityGlow, (nf - 0.5) * 0.3);
   hills.material.color.copy(scene.fog.color).multiplyScalar(0.8).lerp(_hillBase, 0.12);
   updatePin();
   composer.render();

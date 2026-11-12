@@ -145,7 +145,7 @@ float h31(vec3 p){ p=fract(p*0.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p
 }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.12, wm*(1.0-wshop));')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-totalEmissiveRadiance += wlit * mix(vec3(1.0,0.6,0.28), vec3(1.0,0.92,0.8), wshop) * (wshop>0.5 ? 2.6 : 1.4);`);
+totalEmissiveRadiance += wlit * mix(vec3(1.0,0.6,0.28), vec3(1.0,0.92,0.8), wshop) * (wshop>0.5 ? 0.9 : 0.75);`);
   };
   const walls = new THREE.Mesh(geoW, wallMat); walls.castShadow = walls.receiveShadow = true;
 
