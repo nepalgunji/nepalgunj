@@ -10,7 +10,7 @@ export function createPano(canvas, hotLayer) {
   const maxTex = renderer.capabilities.maxTextureSize;
   const scene = new THREE.Scene(); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const U = {
-    tA: { value: null }, tB: { value: null }, uMix: { value: 0 }, uYaw0A: { value: 0 }, uYaw0B: { value: 0 },
+    tA: { value: null }, tB: { value: null }, uMix: { value: 0 }, uYaw0A: { value: 0 }, uYaw0B: { value: 0 }, uSpanA: { value: new THREE.Vector2(2 * Math.PI, Math.PI) }, uSpanB: { value: new THREE.Vector2(2 * Math.PI, Math.PI) },
     uInvPV: { value: new THREE.Matrix4() }, uFade: { value: 1 }, uGrade: { value: 1 }, uTime: { value: 0 },
     uDesat: { value: 0 }, uCool: { value: 0 }, uWarm: { value: 0 }, uDark: { value: 0 }, uHeat: { value: 0 }, uFog: { value: 0 }, uWet: { value: 0 }, uNight: { value: 0 },
   };
@@ -18,20 +18,26 @@ export function createPano(canvas, hotLayer) {
     uniforms: U, depthTest: false, depthWrite: false,
     vertexShader: `varying vec2 vNdc; void main(){ vNdc = position.xy; gl_Position = vec4(position.xy,0.0,1.0); }`,
     fragmentShader: `precision highp float; varying vec2 vNdc;
-      uniform sampler2D tA, tB; uniform float uMix, uYaw0A, uYaw0B, uFade, uGrade, uTime, uDesat, uCool, uWarm, uDark, uHeat, uFog, uWet, uNight; uniform mat4 uInvPV;
+      uniform sampler2D tA, tB; uniform vec2 uSpanA, uSpanB; uniform float uMix, uYaw0A, uYaw0B, uFade, uGrade, uTime, uDesat, uCool, uWarm, uDark, uHeat, uFog, uWet, uNight; uniform mat4 uInvPV;
       const float PI = 3.14159265;
-      vec3 samp(sampler2D t, vec3 d, float yaw0){
+      vec3 samp(sampler2D t, vec3 d, float yaw0, vec2 span){
         float az = atan(d.x, -d.z);            // 0 = north / forward, clockwise
-        float u = fract((az - yaw0)/(2.0*PI)); float v = 0.5 + asin(clamp(d.y,-1.0,1.0))/PI;
-        return texture2D(t, vec2(u, v)).rgb;
+        float el = asin(clamp(d.y,-1.0,1.0));
+        if (span.x > 6.0) return texture2D(t, vec2(fract((az - yaw0)/(2.0*PI)), 0.5 + el/PI)).rgb;
+        // partial panorama: yaw0 = left edge, span = (horizontal, vertical) angular size
+        float da = mod(az - yaw0 + 4.0*PI, 2.0*PI);
+        vec2 uv = vec2(da / span.x, 0.5 + el / span.y);
+        vec3 c = texture2D(t, clamp(uv, 0.001, 0.999)).rgb;
+        float m = step(0.0, uv.x)*step(uv.x, 1.0)*step(0.0, uv.y)*step(uv.y, 1.0);
+        return mix(c*0.15, c, m);
       }
       void main(){
         vec4 p = uInvPV * vec4(vNdc, 1.0, 1.0); vec3 d = normalize(p.xyz / p.w);
         // summer heat shimmer near the horizon
         if (uHeat > 0.01) { float hb = smoothstep(0.25, 0.0, abs(d.y + 0.05));
           d.x += uHeat*hb*0.0025*sin(d.y*420.0 + uTime*7.0 + d.x*30.0); d.y += uHeat*hb*0.0018*sin(d.x*260.0 - uTime*5.0); d = normalize(d); }
-        vec3 c = samp(tA, d, uYaw0A);
-        if (uMix > 0.001) c = mix(c, samp(tB, d, uYaw0B), uMix);
+        vec3 c = samp(tA, d, uYaw0A, uSpanA);
+        if (uMix > 0.001) c = mix(c, samp(tB, d, uYaw0B, uSpanB), uMix);
         float l = dot(c, vec3(0.2126,0.7152,0.0722));
         // climate grade
         c = mix(c, vec3(l), uDesat);
@@ -57,7 +63,7 @@ export function createPano(canvas, hotLayer) {
   const view = new THREE.PerspectiveCamera(75, 1, 0.1, 10);
   let yaw = 0, pitch = 0, fov = 75, vYaw = 0, vPitch = 0, tFov = 75, auto = !SHOT, idle = 0;
   let gyro = null, gyroBase = null, enabled = false, raf = 0, last = performance.now();
-  let intro = null; // cinematic entry move: { t, dur, y0, y1, p0, p1, f0, f1 }
+  let intro = null; let range = null, autoDir = 1; // cinematic entry move: { t, dur, y0, y1, p0, p1, f0, f1 }
   let video = null, vtex = null;
   function stopVideo() { if (video) { video.pause(); video.removeAttribute('src'); video.load(); video = null; } if (vtex) { vtex.dispose(); vtex = null; } }
   function playVideo(url, yaw0) {
@@ -65,7 +71,7 @@ export function createPano(canvas, hotLayer) {
     const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.crossOrigin = 'anonymous'; v.preload = 'auto';
     v.src = url; video = v;
     const go = () => { if (video !== v) return; vtex = new THREE.VideoTexture(v); vtex.colorSpace = THREE.SRGBColorSpace; vtex.generateMipmaps = false; vtex.minFilter = THREE.LinearFilter; vtex.wrapS = THREE.RepeatWrapping;
-      U.tB.value = vtex; U.uYaw0B.value = yaw0; U.uMix.value = 0; tween(1.2, k => U.uMix.value = k).then(() => { if (video !== v) return; U.tA.value = vtex; U.uYaw0A.value = yaw0; U.uMix.value = 0; }); };
+      U.tB.value = vtex; U.uYaw0B.value = yaw0; U.uSpanB.value.set(2 * Math.PI, Math.PI); U.uMix.value = 0; tween(1.2, k => U.uMix.value = k).then(() => { if (video !== v) return; U.tA.value = vtex; U.uYaw0A.value = yaw0; U.uSpanA.value.set(2 * Math.PI, Math.PI); U.uMix.value = 0; }); };
     v.addEventListener('playing', go, { once: true });
     v.play().catch(() => { });
   }
@@ -80,16 +86,19 @@ export function createPano(canvas, hotLayer) {
     cache.set(url, p); return p;
   }
   const urlFor = (id, big) => `assets/pano/${id}${big && maxTex >= 4096 ? '' : '-2k'}.webp`;
+  const partial = new Set();
   async function show(node, opts = {}) {
     const big = !opts.small;
+    const span = node.span ? [node.span[0] * DEG, node.span[1] * DEG] : [2 * Math.PI, Math.PI];
     const small = await load(urlFor(node.id, false)); // fast first paint
     if (U.tA.value && !opts.cut) {
-      U.tB.value = small; U.uYaw0B.value = (node.yaw0 || 0) * DEG; U.uMix.value = 0;
+      U.tB.value = small; U.uYaw0B.value = (node.yaw0 || 0) * DEG; U.uSpanB.value.set(...span); U.uMix.value = 0;
       await tween(0.9, k => U.uMix.value = k);
-      U.tA.value = U.tB.value; U.uYaw0A.value = U.uYaw0B.value; U.uMix.value = 0;
-    } else { U.tA.value = small; U.uYaw0A.value = (node.yaw0 || 0) * DEG; }
+      U.tA.value = U.tB.value; U.uYaw0A.value = U.uYaw0B.value; U.uSpanA.value.copy(U.uSpanB.value); U.uMix.value = 0;
+    } else { U.tA.value = small; U.uYaw0A.value = (node.yaw0 || 0) * DEG; U.uSpanA.value.set(...span); }
     if (opts.look) { yaw = opts.look[0]; pitch = opts.look[1]; }
     setHots(node.hots || []);
+    range = node.range || null;
     stopVideo();
     if (node.video) { const mob = Math.min(innerWidth, innerHeight) < 600 || maxTex < 4096; playVideo(`assets/pano/v/${node.id}-${mob ? 1920 : 2880}.mp4`, (node.yaw0 || 0) * DEG); return; }
     if (big && maxTex >= 4096) load(urlFor(node.id, true)).then(t => { if (U.tA.value === small && !U.uMix.value) U.tA.value = t; }).catch(() => { });
@@ -149,12 +158,19 @@ export function createPano(canvas, hotLayer) {
     } else if (gyro) gyroLook();
     else if (!drag) {
       yaw += vYaw; pitch = clamp(pitch + vPitch, -85, 85); vYaw *= Math.pow(0.04, dt); vPitch *= Math.pow(0.04, dt);
-      idle += dt; if (idle > 6 && !SHOT) auto = true; if (auto) yaw += dt * 2.0 * Math.min(1, (idle - 6) / 3 + 0.001);
+      idle += dt; if (idle > 6 && !SHOT) auto = true; if (auto) yaw += autoDir * dt * 2.0 * Math.min(1, (idle - 6) / 3 + 0.001);
     }
     fov += (tFov - fov) * (SHOT ? 1 : 1 - Math.pow(0.002, dt));
     const W = canvas.clientWidth, H = canvas.clientHeight;
     if (canvas.width !== Math.round(W * renderer.getPixelRatio()) || canvas.height !== Math.round(H * renderer.getPixelRatio())) renderer.setSize(W, H, false);
     view.aspect = W / H; view.fov = W < H ? Math.min(100, fov * 1.25) : fov; view.updateProjectionMatrix();
+    if (range) { // partial (stitched) panorama: keep the view inside the real imagery
+      const hf = Math.atan(Math.tan(view.fov * DEG / 2) * view.aspect) / DEG, vf = view.fov / 2;
+      const [y0, y1, p0, p1] = range; const span = y1 - y0;
+      if (span < hf * 2) yaw = (y0 + y1) / 2; else { if (yaw < y0 + hf) { yaw = y0 + hf; autoDir = 1; vYaw = 0; } if (yaw > y1 - hf) { yaw = y1 - hf; autoDir = -1; vYaw = 0; } }
+      if (p1 - p0 < vf * 2) pitch = (p0 + p1) / 2; else pitch = clamp(pitch, p0 + vf, p1 - vf);
+      if (tFov > (p1 - p0) * 0.98) tFov = (p1 - p0) * 0.98; if (fov > tFov + 0.01 && tFov < (p1 - p0)) fov = Math.min(fov, (p1 - p0) * 0.98);
+    }
     view.position.set(0, 0, 0); view.rotation.set(pitch * DEG, -yaw * DEG, 0, 'YXZ'); view.updateMatrixWorld();
     U.uInvPV.value.copy(view.projectionMatrixInverse).premultiply(view.matrixWorld);
     // rotation-only inverse: zero translation (camera at origin) so it's fine

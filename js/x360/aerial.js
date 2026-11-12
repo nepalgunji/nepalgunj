@@ -439,7 +439,7 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta()); const time = clock.elapsedTime; U.uTime.value = time;
   if (AERIAL.paused && !SHOT) { requestAnimationFrame(frame); return; }
   // climate (applied on top of the time-of-day lighting)
-  scene.fog.density = BASE.fog * (1 + 3.2 * CL.fog + 1.2 * CL.rain);
+  scene.fog.density = BASE.fog * (1 + 1.7 * CL.fog + 1.0 * CL.rain);
   sunL.intensity = BASE.sun * (1 - 0.65 * Math.max(CL.fog, CL.rain) + 0.25 * CL.heat);
   renderer.toneMappingExposure = BASE.exp * (1 - 0.1 * CL.rain + 0.12 * CL.heat + 0.05 * CL.fog) + CL.flash * 0.8;
   scene.environmentIntensity = BASE.env * (1 + 0.5 * CL.fog);

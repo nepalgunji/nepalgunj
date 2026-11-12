@@ -13,7 +13,7 @@ export function createFX(canvas, mobile) {
   float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a*n2(p); p = p*2.03 + 17.1; a *= 0.5; } return s; }
   float rainLayer(vec2 q, float scale, float speed, float len, float seed){
     q *= vec2(scale, scale*0.18); q.x += q.y*0.06; q.y -= uT*speed; vec2 id = floor(q); vec2 f = fract(q);
-    float r = h1(id + seed); if (r > 0.42) return 0.0;
+    float r = h1(id + seed); if (r > 0.62) return 0.0;
     float x = abs(f.x - (0.2 + 0.6*h1(id+seed+3.1)));
     float y = fract(f.y + r*7.0);
     return smoothstep(0.035, 0.0, x) * smoothstep(0.0, 0.1, y) * smoothstep(len, len*0.4, y);
@@ -48,7 +48,7 @@ export function createFX(canvas, mobile) {
       float d = length((f - c) * vec2(1.0, 0.8)); float rad = 0.05 + 0.08*h1(id+9.0);
       float drop = smoothstep(rad, rad*0.6, d) * step(r, 0.33) * smoothstep(1.0, 0.6, life) * smoothstep(0.0, 0.08, life);
       float ring = smoothstep(rad, rad*0.85, d) - smoothstep(rad*0.85, rad*0.6, d);
-      float da = uDrops * (drop*0.10 + ring*0.22); col = col*(1.0-da) + vec3(0.92)*da; a = a + da*(1.0-a);
+      float da = uDrops * (drop*0.07 + ring*0.09); col = col*(1.0-da) + vec3(0.92)*da; a = a + da*(1.0-a);
     }
     // film grain
     float g = h1(px + fract(uT*13.0)*vec2(91.0, 37.0)) - 0.5;

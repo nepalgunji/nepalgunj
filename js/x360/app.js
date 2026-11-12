@@ -196,7 +196,7 @@ function climLoop() {
   Object.assign(CL, { fog: C.fog, rain: C.rain, heat: C.heat, desat: C.desat, cool: C.cool, warm: C.warm, dark: C.dark, wet: C.wet, flash: flash * C.light * 0.35 });
   const P = pano.U; P.uFog.value = C.fog * 0.55; P.uHeat.value = C.heat; P.uDesat.value = C.desat; P.uCool.value = C.cool; P.uWarm.value = C.warm; P.uDark.value = C.dark + flash * C.light * -0.4; P.uWet.value = C.wet;
   letter += ((letterT) - letter) * (SHOT ? 1 : 1 - Math.pow(0.02, dt));
-  const S = fx.S; S.rain = C.rain; S.fog = C.fog * (state.p ? 0.55 : 0.75); S.drops = C.drops * (state.p ? 1 : 0.5); S.flash = flash * C.light; S.night = night; S.warm = C.heat * 0.8;
+  const S = fx.S; S.rain = C.rain; S.fog = C.fog * (state.p ? 0.55 : 0.45); S.drops = C.drops * (state.p ? 1 : 0.5); S.flash = flash * C.light; S.night = night; S.warm = C.heat * 0.8;
   S.grain = MOBILE ? 0.035 : 0.05; S.letter = letter; S.pan = state.p ? pano.yaw / 90 : 0;
   fx.render();
   if (!SHOT) requestAnimationFrame(climLoop);
