@@ -151,7 +151,7 @@ groundMat.onBeforeCompile = s => {
       diffuseColor.rgb *= im; }`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 { vec2 gu = (vWP.xz - bGlow.xy)/(bGlow.zw-bGlow.xy); float gin = step(0.0,gu.x)*step(gu.x,1.0)*step(0.0,gu.y)*step(gu.y,1.0);
-  totalEmissiveRadiance += texture2D(tGlow, vec2(gu.x,1.0-gu.y)).rgb * gin * uNight * 0.42; }`);
+  totalEmissiveRadiance += texture2D(tGlow, vec2(gu.x,1.0-gu.y)).rgb * gin * uNight * 0.3; }`);
 };
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, 1, 1).rotateX(-Math.PI / 2), groundMat);
 ground.receiveShadow = true; scene.add(ground);

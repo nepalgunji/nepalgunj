@@ -84,10 +84,18 @@ function playClip(p, i) {
   const c = p.clips[i]; nodeStrip(p, i);
   vfg.poster = clipPoster(c); vbg.poster = clipPoster(c);
   vfg.src = clipUrl(c); vbg.src = clipUrl(c);
-    const pl = v => v.play().catch(() => { });
+    film.classList.remove('pan'); filmPan.x = 50; vfg.style.objectPosition = '';
+  vfg.onloadedmetadata = () => { const va = vfg.videoWidth / vfg.videoHeight, sa = innerWidth / innerHeight; filmPan.on = va > sa * 1.25; film.classList.toggle('pan', filmPan.on); };
+  const pl = v => v.play().catch(() => { });
   pl(vfg); pl(vbg);
   history.replaceState(null, '', '#' + p.id);
 }
+// wide footage on a narrow (portrait) screen: fill the screen and let the user drag across it
+const filmPan = { on: false, x: 50, v: 0.6, drag: null, idle: 0 };
+film.addEventListener('pointerdown', e => { if (!filmPan.on) return; film.setPointerCapture(e.pointerId); filmPan.drag = e.clientX; filmPan.idle = 0; });
+film.addEventListener('pointermove', e => { if (filmPan.drag == null) return; const W = innerWidth, va = vfg.videoWidth / vfg.videoHeight || 1.78; const over = innerHeight * va - W; filmPan.x = Math.min(100, Math.max(0, filmPan.x - (e.clientX - filmPan.drag) / Math.max(1, over) * 100)); filmPan.drag = e.clientX; });
+const endPan = () => { filmPan.drag = null; }; film.addEventListener('pointerup', endPan); film.addEventListener('pointercancel', endPan);
+(function panLoop() { if (filmPan.on && state.p && filmPan.drag == null) { filmPan.idle++; if (filmPan.idle > 240) { filmPan.x += filmPan.v * 0.12; if (filmPan.x > 92 || filmPan.x < 8) filmPan.v *= -1; } } if (filmPan.on) vfg.style.objectPosition = filmPan.x.toFixed(2) + '% 50%'; requestAnimationFrame(panLoop); })();
 pano.onHot(h => {
   if (h.node) { showNode(state.p, state.p.nodes.find(n => n.id === h.node)); return; }
   if (h.place) { const q = byId[h.place]; if (q.kind === 'aerial') { back().then(() => go(q)); } else enterPlace(q, true); }
