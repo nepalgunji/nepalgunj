@@ -823,8 +823,11 @@
  {
   "type": "creator_photo",
   "key": "bon-hanuman-108",
-  "files": [],
-  "used_on_site": false,
+  "files": [
+   "assets/w3d/hanuman.webp",
+   "assets/img/c/hanuman-108.webp"
+  ],
+  "used_on_site": true,
   "creator": "beauty_of_nepalgunj",
   "creator_display": "Beauty of Nepalgunj",
   "platform": "TikTok",
@@ -1038,5 +1041,35 @@
   "author": "Grab3D",
   "license": "CC0",
   "license_url": ""
+ },
+ {
+  "key": "esri-world-imagery",
+  "file": "(streamed at runtime, not hosted)",
+  "title": "Esri World Imagery basemap tiles (z13/z15/z17/z18)",
+  "page": "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
+  "license": "Esri Terms of Use (attribution required, tiles fetched live by the visitor's browser, not cached/re-hosted)",
+  "license_url": "https://www.esri.com/en-us/legal/terms/full-master-agreement",
+  "author": "Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+  "notes": "Ground + roof imagery in the 3D index.html. Tiny attribution shown on site."
+ },
+ {
+  "key": "hanuman-cutout-3d",
+  "file": "assets/w3d/hanuman.webp",
+  "title": "Background-removed cut-out of the 108-ft Hanuman statue photo, used as a 3D impostor",
+  "page": "https://www.tiktok.com/@beauty_of_nepalgunj/video/7692707018980756757",
+  "license": "used with creator permission (per user)",
+  "author": "Beauty of Nepalgunj",
+  "notes": "Derived from assets/img/c/hanuman-108.webp",
+  "creator": "beauty_of_nepalgunj",
+  "platform": "TikTok"
+ },
+ {
+  "key": "osm-buildings-3d",
+  "file": "assets/w3d/city.bin",
+  "title": "OSM buildings/roads/water extract (tools/build_w3d.py)",
+  "page": "https://www.openstreetmap.org/copyright",
+  "license": "ODbL 1.0",
+  "author": "© OpenStreetMap contributors",
+  "notes": "Extruded footprints in the 3D index."
  }
 ]
