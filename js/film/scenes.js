@@ -10,7 +10,7 @@ export const SCENES = {
   bageshwori: { bg: own('bageshwori-day', { mode: 'full' }), frames: [{ img: I + 'bageshwori-temple-dhungana-1.webp' }, { img: I + 'jungeshwor-mahadev-on-pond.webp' }], map: { at: 'bageshwori', az: 215 } },
   hanuman:    { bg: own('hanuman', { mode: 'column' }), frames: [{ img: I + 'c/hanuman-108.webp', tall: true }, clip('pc-hanuman-mandir')], map: { at: 'hanuman', az: 140 } },
   tribhuvan:  { bg: clip('yt-tribhuvan-street-walk', { mode: 'full' }), frames: [clip('pc-tribhuvan-chowk-2026'), { img: I + 'nepalgunj-market-01.webp' }], map: { at: 'tribhuvan', az: 160 } },
-  dhamboji:   { bg: { v: V + 'dhamboji-scrub-720.mp4', p: V + 'dhamboji-poster.webp', mode: 'scrub' }, frames: [clip('bon-dhamboji-chowk', { wide: true }), clip('yt-pradip-dhamboji-bp-drone', { wide: true })], map: { at: 'dhamboji', az: 200 } },
+  dhamboji:   { bg: { v: V + 'dhamboji-scrub-720.mp4', p: V + 'dhamboji-poster.webp', mode: 'scrub' }, frames: [clip('bon-dhamboji-chowk', { wide: true }), clip('dhamboji-bp-aerial', { wide: true })], map: { at: 'dhamboji', az: 200 } },
   ranitalau:  { bg: { img: I + 'rani-talau.webp', mode: 'photo' }, frames: [clip('bon-rani-talau')], map: { at: 'ranitalau', az: 235 } },
   culture:    { bg: clip('bon-random-city', { mode: 'column' }), frames: [{ img: I + 'c/masjid-green.webp' }, { img: I + 'tharu-maghe-celebration.webp' }], map: { at: 'masjid', az: 150 } },
   food:       { bg: clip('yt-mubarak-biryani', { mode: 'full' }), frames: [clip('bon-chat-corner'), clip('bon-foodfest-tribhuvan')], map: { at: 'bpchowk', az: 120 } },

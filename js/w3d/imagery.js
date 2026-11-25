@@ -1,5 +1,6 @@
-// Runtime-streamed aerial imagery (Esri World Imagery). Tiles are fetched by the visitor's
-// browser from Esri (not re-hosted) and composited into one canvas texture per zoom tier.
+// Aerial imagery (Esri World Imagery). Nepalgunj Sub-Metropolitan City is pre-baked into
+// assets/sat/{z}/{x}/{y}.webp (z13-17 whole municipality, z18 urban core); anything outside
+// that falls back to Esri's live tile service. Tiles are composited into one canvas per tier.
 import * as THREE from 'three';
 export const LAT0 = 28.0617, LON0 = 81.6238;
 export const MX = 111320 * Math.cos(LAT0 * Math.PI / 180), MY = 110574;
@@ -9,7 +10,16 @@ const tx2lon = (x, z) => x / 2 ** z * 360 - 180;
 const ty2lat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / 2 ** z; return 180 / Math.PI * Math.atan(Math.sinh(n)); };
 export const toX = lon => (lon - LON0) * MX, toZ = lat => -(lat - LAT0) * MY;
 export const toLon = x => x / MX + LON0, toLat = z => -z / MY + LAT0;
-const URL = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+const ESRI = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+const BASE = new URL('../../assets/sat/', import.meta.url).href;
+const CITY = [81.586, 27.9967, 81.7033, 28.1337], padB = (b, km) => [b[0] - km / 98.3, b[1] - km / 110.6, b[2] + km / 98.3, b[3] + km / 110.6];
+const BAKED = { 13: padB(CITY, 25), 15: padB(CITY, 4), 16: padB(CITY, 1), 17: padB(CITY, 0.3), 18: [81.590, 28.026, 81.657, 28.094] };
+export const BAKED_MAX = (lon, lat) => { const b = BAKED[18]; return lon > b[0] && lon < b[2] && lat > b[1] && lat < b[3] ? 18 : 17; };
+function tileURL(z, x, y) {
+  const b = BAKED[z];
+  if (b && x >= Math.floor(lon2tx(b[0], z)) && x <= Math.floor(lon2tx(b[2], z)) && y >= Math.floor(lat2ty(b[3], z)) && y <= Math.floor(lat2ty(b[1], z))) return `${BASE}${z}/${x}/${y}.webp`;
+  return ESRI(z, x, y);
+}
 
 export function makeTier(z, cx, cz, nx, ny, fill) {
   const tx0 = Math.floor(lon2tx(toLon(cx), z) - nx / 2), ty0 = Math.floor(lat2ty(toLat(cz), z) - ny / 2);
@@ -24,7 +34,7 @@ export function makeTier(z, cx, cz, nx, ny, fill) {
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) jobs.push([i, j]);
   // load centre tiles first
   jobs.sort((a, b) => Math.hypot(a[0] - nx / 2, a[1] - ny / 2) - Math.hypot(b[0] - nx / 2, b[1] - ny / 2));
-  const tier = { z, canvas, ctx, tex, bounds, total: jobs.length, done: 0, ok: 0 };
+  const tier = { z, canvas, ctx, tex, bounds, cx, cz, total: jobs.length, done: 0, ok: 0 };
   tier.load = (onTile, conc = 10) => new Promise(res => {
     let k = 0, active = 0, dirty = 0;
     const next = () => {
@@ -33,8 +43,9 @@ export function makeTier(z, cx, cz, nx, ny, fill) {
         const [i, j] = jobs[k++]; active++;
         const img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
         img.onload = () => { ctx.drawImage(img, i * 256, j * 256); tier.ok++; fin(); };
-        img.onerror = () => fin();
-        img.src = URL(z, tx0 + i, ty0 + j);
+        const u = tileURL(z, tx0 + i, ty0 + j);
+        img.onerror = () => { if (img.src.startsWith(BASE)) { img.src = ESRI(z, tx0 + i, ty0 + j); return; } fin(); };
+        img.src = u;
       }
     };
     const fin = () => { active--; tier.done++; if (++dirty >= 12) { dirty = 0; tex.needsUpdate = true; } onTile && onTile(tier); next(); };

@@ -737,7 +737,7 @@
   "type": "creator_clip",
   "key": "yt-pradip-dhamboji-bp-drone",
   "files": [
-   "assets/videos/c/yt-pradip-dhamboji-bp-drone.mp4"
+   "assets/videos/c/dhamboji-bp-aerial.mp4"
   ],
   "used_on_site": true,
   "creator": "@cjprdp",
@@ -747,7 +747,8 @@
   "posted": "2024-06-28 16:04 UTC+05:45 (UTC+5:45)",
   "caption": "Drone Shots of Nepalgunj | Dhambojhi | BP Chowk | Waterpark | Video",
   "permission": "user will contact creator, credit, and remove if objected",
-  "chapter": "chowk"
+  "chapter": "chowk",
+  "notes_files": "renamed from yt-pradip-dhamboji-bp-drone.* (no creator handle in public filenames)"
  },
  {
   "type": "creator_clip",

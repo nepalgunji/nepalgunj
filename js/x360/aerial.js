@@ -286,7 +286,7 @@ function buildVehicles(roads, n) {
 
 
 // ───────── orbit controls (aerial only: never close enough to look fake)
-const MIN_D = MOBILE ? 950 : 850, MAX_D = 5200;
+const MIN_D = MOBILE ? 950 : 850, MAX_D = 8000;
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = 0.07;
 controls.minDistance = MIN_D; controls.maxDistance = MAX_D;
@@ -300,9 +300,10 @@ camera.position.set(60 - 1150, 1500, 80 + 1300);
 let idleT = 0; let flying = null;
 controls.addEventListener('start', () => { controls.autoRotate = false; idleT = 0; if (flying && !flying.lock) flying = null; AERIAL.onInteract && AERIAL.onInteract(); });
 controls.addEventListener('end', () => { idleT = 0; });
-const BOUND = 1900;
+const BOUND = 1900; const CITY_B = [toX(81.586), toZ(28.1337), toX(81.7033), toZ(27.9967)];
 function clampTarget() {
-  const t = controls.target; t.x = clamp(t.x, -BOUND, BOUND); t.z = clamp(t.z, -BOUND, BOUND); t.y = 0;
+  // whole sub-metropolitan city (municipal bbox) is explorable
+  const t = controls.target; t.x = clamp(t.x, CITY_B[0], CITY_B[2]); t.z = clamp(t.z, CITY_B[1], CITY_B[3]); t.y = 0;
   if (camera.position.y < 60) camera.position.y = 60;
 }
 
@@ -362,6 +363,16 @@ function updatePins() {
 }
 export function pinScreen(p) { const o = PINS.find(o => o.p === p); if (!o) return null; _pp.copy(o.v).project(camera); return [(_pp.x * 0.5 + 0.5) * innerWidth, (-_pp.y * 0.5 + 0.5) * innerHeight]; }
 
+// ───────── near tier follows the camera across the whole city (z17, double-buffered)
+let NEAR = null;
+function requestNearAt(x, z) {
+  if (!NEAR || NEAR.busy) return;
+  const c = NEAR.cur, ext = (c.bounds.z - c.bounds.x);
+  if (Math.abs(x - c.cx) < ext * 0.22 && Math.abs(z - c.cz) < ext * 0.22) return;
+  NEAR.busy = true;
+  const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45');
+  t.load(null, 10).then(t => { const old = NEAR.cur; NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); NEAR.busy = false; setTimeout(() => old.tex.dispose(), 500); });
+}
 // ───────── focus tier: sharp z18 imagery around wherever the camera looks (when low)
 const focusCache = new Map(); let focusKey = '';
 function requestFocusAt(x, z) {
@@ -369,7 +380,7 @@ function requestFocusAt(x, z) {
   if (key === focusKey) return; focusKey = key;
   let entry = focusCache.get(key);
   if (!entry) {
-    const t = makeTier(18, kx * g, kz * g, MOBILE ? 4 : 6, MOBILE ? 4 : 6, '#555a45');
+    const t = makeTier(18, kx * g, kz * g, MOBILE ? 5 : 8, MOBILE ? 5 : 8, '#555a45');
     entry = { t, p: t.load(null, 8) }; focusCache.set(key, entry);
     if (focusCache.size > 4) { const [k0, e0] = focusCache.entries().next().value; if (k0 !== key) { e0.t.tex.dispose(); focusCache.delete(k0); } }
   }
@@ -380,7 +391,10 @@ function requestFocusAt(x, z) {
 const clock = new THREE.Clock();
 async function init() {
   const tierN = MOBILE ? [8, 9] : [9, 10];
-  const far = makeTier(13, 0, 0, 8, 8, '#3f4a30'), mid = makeTier(15, 300, 0, MOBILE ? 6 : 8, MOBILE ? 6 : 8, '#4a5038'), nearT = makeTier(17, 313, -17, tierN[0], tierN[1], '#555a45');
+  // far z13 (region) · mid z15 (whole municipality) · near z17 (follows the camera) · focus z18 (look point)
+  const CC = [toX(81.6447), toZ(28.0652)];
+  const far = makeTier(13, CC[0], CC[1], 8, 8, '#3f4a30'), mid = makeTier(15, CC[0], CC[1], MOBILE ? 12 : 16, MOBILE ? 12 : 16, '#4a5038'), nearT = makeTier(17, 313, -17, tierN[0], tierN[1], '#555a45');
+  NEAR = { cur: nearT, n: tierN, busy: false };
   U.tFar.value = far.tex; U.bFar.value.copy(far.bounds); U.tMid.value = mid.tex; U.bMid.value.copy(mid.bounds); U.tNear.value = nearT.tex; U.bNear.value.copy(nearT.bounds);
   progress.b = far.total + mid.total + nearT.total + 12;
   const tick = () => { progress.a++; setBar(); };
@@ -455,7 +469,7 @@ function frame() {
   const sc = sunL.shadow.camera; sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 10; sc.far = 4000; sc.updateProjectionMatrix();
   const sd = curEl > -4 ? sunDir : _v.set(-0.4, 0.6, -0.5).normalize();
   sunL.target.position.copy(tg); sunL.position.copy(tg).addScaledVector(sd, 1600);
-  focusT += dt; if (!SHOT && dist < 1300 && focusT > 0.5 && U.tDetail.value) { focusT = 0; requestFocusAt(tg.x, tg.z); }
+  focusT += dt; if (!SHOT && focusT > 0.5 && U.tDetail.value) { focusT = 0; requestNearAt(tg.x, tg.z); if (dist < 2400) requestFocusAt(tg.x, tg.z); }
   const night = U.uNight.value, dusk = smooth(4, -2, curEl);
   if (vehicles) { vehicles.update(dt); vehicles.head.material.uniforms.uOp.value = dusk; vehicles.tail.material.uniforms.uOp.value = dusk; }
   if (streetPts) streetPts.material.uniforms.uOp.value = smooth(2, -4, curEl);

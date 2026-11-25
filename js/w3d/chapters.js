@@ -17,7 +17,7 @@ export const CHAPTERS = [
     look: [705, 4, 151], yaw: 300, pitch: 32, dist: 250, h: 13.3, pin: [705.1, 14, 151.4] },
   { id: 'dhamboji', name: 'Dhamboji Chowk', dev: 'धम्बोजी चोक', line: 'The bazaar that never sleeps',
     look: [248, 3, -574], yaw: 310, pitch: 30, dist: 240, h: 14.6, pin: [248, 6, -573.8],
-    media: { video: 'assets/videos/c/yt-pradip-dhamboji-bp-drone.mp4', poster: 'assets/videos/c/yt-pradip-dhamboji-bp-drone-poster.webp' } },
+    media: { video: 'assets/videos/c/dhamboji-bp-aerial.mp4', poster: 'assets/videos/c/dhamboji-bp-aerial-poster.webp' } },
   { id: 'hope', name: 'Hope International', dev: 'होप इन्टरनेशनल एकेडेमी', line: 'Bright minds of north Nepalgunj',
     look: [992, 4, -1008], yaw: 330, pitch: 32, dist: 250, h: 15.6, pin: [992.3, 14, -1008.3] },
   { id: 'food', name: 'Taste of Nepalgunj', dev: 'नेपालगञ्जको स्वाद', line: 'Biryani · Sekuwa · Jeri',
