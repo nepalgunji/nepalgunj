@@ -1,4 +1,4 @@
-import { AERIAL, CL, start, addPins, flyTo, setHour, setEnabled, setMinDistance, home } from './aerial.js';
+import { AERIAL, CL, start, addPins, flyTo, setHour, setEnabled, setMinDistance, home, sunTimes } from './aerial.js';
 import { createPano } from './pano.js';
 import { createFX } from './fx.js';
 import { createSound } from './sound.js';
@@ -41,8 +41,12 @@ for (const p of PLACES) for (const n of p.nodes) if (!n.film) {
 
 // ── UI: time of day
 const tod = $$('#tod button');
+{ // buttons follow today's real sun over Nepalgunj
+  const st = sunTimes(), H = [st.rise + 0.35, st.noon - 0.6, st.set - 0.2, st.set + 1.9];
+  tod.forEach((b, i) => { if (H[i] != null) b.dataset.h = H[i].toFixed(2); });
+}
 tod.forEach(b => b.onclick = () => { tod.forEach(x => x.classList.toggle('on', x === b)); setHour(+b.dataset.h); });
-setHour(Q.has('h') ? +Q.get('h') : 11.6, true);
+setHour(Q.has('h') ? +Q.get('h') : +tod[1].dataset.h, true);
 if (Q.has('h')) tod.forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.h - +Q.get('h')) < 0.6));
 
 // ── drawer

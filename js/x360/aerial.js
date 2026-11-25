@@ -7,6 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSM } from 'three/addons/csm/CSM.js';
 import { makeTier, IMAGERY_GLSL, toX, toZ } from '../w3d/imagery.js';
 import { loadCity, buildCity, roadGlow, buildWater, rng } from '../w3d/city.js';
 import { buildTrees } from '../w3d/trees.js';
@@ -85,6 +86,41 @@ const sunL = new THREE.DirectionalLight(0xffffff, 3); sunL.castShadow = true;
 sunL.shadow.mapSize.set(MOBILE ? 1024 : 3072, MOBILE ? 1024 : 3072);
 sunL.shadow.bias = -0.0004; sunL.shadow.normalBias = 0.6; sunL.shadow.radius = 3;
 scene.add(sunL, sunL.target);
+// cascaded shadow maps (desktop): sharp near shadows + shadows across the visible city, soft cascade blend
+const USE_CSM = !MOBILE && !Q.has('nocsm');
+let csm = null;
+if (USE_CSM) {
+  csm = new CSM({ camera, parent: scene, cascades: 3, maxFar: 7000, mode: 'practical', shadowMapSize: 2048, lightIntensity: 3, lightNear: 1, lightFar: 9000, lightMargin: 700, shadowBias: -0.00015, lightDirection: new THREE.Vector3(-1, -1, -1).normalize() });
+  csm.fade = true;
+  csm.lights.forEach(l => { l.shadow.normalBias = 0.5; });
+  scene.remove(sunL); sunL.castShadow = false;
+}
+// aerial perspective: haze is brighter/warmer toward the sun (shared by every lit material)
+const AP = { uSunV: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1, 0.8, 0.6) }, uScat: { value: 0 } };
+function apFog(sh) {
+  Object.assign(sh.uniforms, AP);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>\nuniform vec3 uSunV; uniform vec3 uSunCol; uniform float uScat;')
+    .replace('#include <fog_fragment>', `#ifdef USE_FOG
+  float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+  float muS = max(dot(normalize(-vViewPosition), uSunV), 0.0);
+  vec3 fogC = fogColor + uSunCol * uScat * (pow(muS, 10.0) * 0.85 + muS * muS * 0.22);
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogC, fogFactor );
+#endif`);
+}
+export function setupLit(root) {
+  root.traverse(o => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      if (!m || m.userData.lit || !(m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial)) continue;
+      m.userData.lit = 1; const own = m.onBeforeCompile; const key = own ? own.toString() : 'std';
+      if (csm) csm.setupMaterial(m);
+      const c = m.onBeforeCompile;
+      m.onBeforeCompile = (sh, r) => { if (csm) c.call(m, sh, r); if (own && own !== c) own.call(m, sh, r); if (sh.fragmentShader.includes('vViewPosition')) apFog(sh); };
+      m.customProgramCacheKey = () => key + (csm ? '|csm' : '') + '|ap';
+      m.needsUpdate = true;
+    }
+  });
+}
 const hemi = new THREE.HemisphereLight(0xbcd2ff, 0x5a4a35, 0.4); scene.add(hemi);
 scene.fog = new THREE.FogExp2(0xc8c4bc, 0.00026);
 // stars
@@ -103,12 +139,30 @@ const FOG = [[-14, 0.012, 0.016, 0.03], [-6, 0.06, 0.06, 0.09], [-1, 0.42, 0.3, 
 const SUNC = [[-4, 1, 0.4, 0.2, 0], [1, 1, 0.42, 0.18, 0.6], [6, 1, 0.62, 0.36, 2.0], [15, 1, 0.84, 0.66, 3.0], [40, 1, 0.96, 0.9, 3.6]];
 const HEMI = [[-14, 0.08, 0.1, 0.18, 0.5], [-4, 0.2, 0.2, 0.3, 0.4], [2, 0.6, 0.55, 0.6, 0.25], [15, 0.75, 0.82, 1.0, 0.25], [50, 0.75, 0.84, 1.0, 0.3]];
 let curEl = 99, curAz = 0;
-function sunAt(hour) {
-  const rise = 6.3, set = 17.6;
-  let el; if (hour < rise) el = -(rise - hour) * 13; else if (hour > set) el = -(hour - set) * 13; else el = 48 * Math.sin(Math.PI * (hour - rise) / (set - rise));
-  el = Math.max(el, -32);
-  const az = lerp(108, 252, clamp((hour - rise) / (set - rise), -0.15, 1.15));
-  return { el, az };
+// real solar position (NOAA) for Nepalgunj on today's date; hour = Nepal time (UTC+5:45)
+const LATD = 28.0617, LOND = 81.6238, NPT = 5.75;
+function solar(ms) {
+  const jd = ms / 86400000 + 2440587.5, T = (jd - 2451545) / 36525;
+  const L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360, M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T), Mr = M * DEG;
+  const C = Math.sin(Mr) * (1.914602 - T * (0.004817 + 0.000014 * T)) + Math.sin(2 * Mr) * (0.019993 - 0.000101 * T) + Math.sin(3 * Mr) * 0.000289;
+  const om = 125.04 - 1934.136 * T, lam = L0 + C - 0.00569 - 0.00478 * Math.sin(om * DEG);
+  const eps = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60 + 0.00256 * Math.cos(om * DEG);
+  const dec = Math.asin(Math.sin(eps * DEG) * Math.sin(lam * DEG)), y = Math.tan(eps * DEG / 2) ** 2, L0r = L0 * DEG;
+  const eqt = 4 / DEG * (y * Math.sin(2 * L0r) - 2 * e * Math.sin(Mr) + 4 * e * y * Math.sin(Mr) * Math.cos(2 * L0r) - 0.5 * y * y * Math.sin(4 * L0r) - 1.25 * e * e * Math.sin(2 * Mr));
+  const utcMin = ((ms / 60000) % 1440 + 1440) % 1440, tst = ((utcMin + eqt + 4 * LOND) % 1440 + 1440) % 1440, ha = (tst / 4 - 180) * DEG, la = LATD * DEG;
+  const el = 90 - Math.acos(clamp(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha), -1, 1)) / DEG;
+  const az = (Math.atan2(Math.sin(ha), Math.cos(ha) * Math.sin(la) - Math.tan(dec) * Math.cos(la)) / DEG + 540) % 360;
+  return { el: el + (el > -1.2 ? 0.83 * Math.exp(-Math.max(el, 0) / 3) : 0), az }; // + rough refraction near the horizon
+}
+const _now = new Date(Date.now() + NPT * 3600000), DAY0 = Date.UTC(_now.getUTCFullYear(), _now.getUTCMonth(), _now.getUTCDate());
+function sunAt(hour) { const s = solar(DAY0 + (hour - NPT) * 3600000); return { el: Math.max(s.el, -32), az: s.az }; }
+// sunrise / sunset today (for the Dawn / Dusk buttons)
+export function sunTimes() {
+  let rise = 6.5, set = 17.5, prev = sunAt(3).el;
+  for (let h = 3.02; h < 21; h += 0.02) { const e = sunAt(h).el; if (prev < 0 && e >= 0) rise = h; if (prev >= 0 && e < 0) set = h; prev = e; }
+  let noon = 12, best = -99; for (let h = 10; h < 14; h += 0.02) { const e = sunAt(h).el; if (e > best) { best = e; noon = h; } }
+  return { rise, set, noon };
 }
 function applyTime(hour) {
   const { el, az } = sunAt(hour);
@@ -209,7 +263,7 @@ function setupPost() {
 }
 setupPost();
 function resize() {
-  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 60 : 45; camera.updateProjectionMatrix();
+  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 60 : 45; camera.updateProjectionMatrix(); if (csm) csm.updateFrustums();
   renderer.setSize(innerWidth, innerHeight, false); composer.setSize(innerWidth, innerHeight);
 }
 addEventListener('resize', resize); resize();
@@ -414,7 +468,7 @@ function updateTiles(tx, tz, conc = 2) {
       if (TILES.live.get(t.k) !== rec) return;
       for (const b of d.buildings) for (const p of b.pts) { p[0] += t.cx; p[1] += t.cz; }
       d.seed = (t.cx * 7 + t.cz * 13) | 0;
-      rec.g = buildCity(d, U, TILES.tex, [], 0, false); scene.add(rec.g); tileLOD(rec, Math.hypot(t.cx - controls.target.x, t.cz - controls.target.z));
+      rec.g = buildCity(d, U, TILES.tex, [], 0, false); setupLit(rec.g); scene.add(rec.g); tileLOD(rec, Math.hypot(t.cx - controls.target.x, t.cz - controls.target.z));
     }).catch(() => { }).finally(() => { TILES.busy--; });
   }
   return want.length;
@@ -487,10 +541,11 @@ async function init() {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
     diyas = new THREE.Points(g, pointsMat(new THREE.Color(1.0, 0.55, 0.18), 1.8)); diyas.frustumCulled = false; scene.add(diyas);
   }
+  setupLit(scene);
   // first frame with low-detail tiers, then trees once the near tier has landed
   await Promise.race([Promise.all([far.load ? tilesP : null]), new Promise(r => setTimeout(r, SHOT ? 90000 : 6000))]);
   const doneTrees = () => {
-    try { const t = buildTrees(nearT, city.buildings, excl, MOBILE ? 2500 : 7000, U, city.water); scene.add(t.group); window.__trees = t.count; } catch (e) { console.warn('trees', e); }
+    try { const t = buildTrees(nearT, city.buildings, excl, MOBILE ? 2500 : 7000, U, city.water); setupLit(t.group); scene.add(t.group); window.__trees = t.count; } catch (e) { console.warn('trees', e); }
     progress.a = progress.b; setBar();
     document.body.dataset.ready = '1';
     AERIAL.ready = true; AERIAL.onReady && AERIAL.onReady();
@@ -510,6 +565,10 @@ function frame() {
   const fogK = clamp(2600 / camera.position.distanceTo(controls.target), 0.32, 1);
   scene.fog.density = BASE.fog * (fogK + (1.7 * CL.fog + 1.0 * CL.rain) * Math.sqrt(fogK));
   sunL.intensity = BASE.sun * (1 - 0.65 * Math.max(CL.fog, CL.rain) + 0.25 * CL.heat);
+  // aerial-perspective sun scatter: strongest at low sun, damped by fog/rain, off at night
+  AP.uSunV.value.copy(sunDir).transformDirection(camera.matrixWorldInverse);
+  AP.uSunCol.value.copy(sunL.color).multiplyScalar(curEl > -2 ? 1 : 0);
+  AP.uScat.value = lerp(0.12, 0.75, smooth(28, 1, curEl)) * smooth(-3, 1, curEl) * (1 - 0.6 * Math.max(CL.fog, CL.rain));
   renderer.toneMappingExposure = BASE.exp * (1 - 0.1 * CL.rain + 0.12 * CL.heat + 0.05 * CL.fog) + CL.flash * 0.8;
   scene.environmentIntensity = BASE.env * (1 + 0.5 * CL.fog);
   if (grade) { const g = grade.uniforms; g.uT.value = time; g.uDesat.value = CL.desat; g.uCool.value = CL.cool; g.uWarm.value = CL.warm; g.uDark.value = CL.dark; g.uWet.value = CL.wet; g.uHeat.value = CL.heat; g.uFlash.value = CL.flash; }
@@ -524,6 +583,7 @@ function frame() {
   const sc = sunL.shadow.camera; sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 10; sc.far = 4000; sc.updateProjectionMatrix();
   const sd = curEl > -4 ? sunDir : _v.set(-0.4, 0.6, -0.5).normalize();
   sunL.target.position.copy(tg); sunL.position.copy(tg).addScaledVector(sd, 1600);
+  if (csm) { csm.lightDirection.copy(sd).negate(); for (const l of csm.lights) { l.color.copy(sunL.color); l.intensity = sunL.intensity; } csm.update(); }
   focusT += dt; if (!SHOT && focusT > 0.5 && U.tDetail.value) { focusT = 0; requestNearAt(tg.x, tg.z); updateTiles(tg.x, tg.z); if (dist < 2400) requestFocusAt(tg.x, tg.z); }
   const night = U.uNight.value, dusk = smooth(4, -2, curEl);
   if (vehicles) { vehicles.update(dt); vehicles.head.material.uniforms.uOp.value = dusk; vehicles.tail.material.uniforms.uOp.value = dusk; }
