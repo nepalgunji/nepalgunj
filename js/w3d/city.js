@@ -44,8 +44,9 @@ const PALETTE = [ // Terai town facades (linear-ish sRGB picks)
   [0.6, 0.59, 0.56], [0.6, 0.59, 0.56], [0.57, 0.57, 0.56], [0.56, 0.4, 0.33], [0.66, 0.63, 0.58], [0.78, 0.66, 0.66],
 ];
 
-export function buildCity(data, U, tex, excl, quality) {
-  const R = rng(1234);
+let MATS = null; // shared by the core city and every streamed outskirts tile
+export function buildCity(data, U, tex, excl, quality, lite) {
+  const R = rng(lite ? (data.seed || 99) : 1234);
   const wallP = [], wallN = [], wallUV = [], wallC = [], wallI = [];
   const roofP = [], roofC = [];
   const tanks = [], heads = [];
@@ -81,7 +82,7 @@ export function buildCity(data, U, tex, excl, quality) {
     }
     // roof furniture: black Sintex tanks + stair-head "mumty"
     let area = 0; for (let i = 0; i < n; i++) { const a = pts[i], bb = pts[(i + 1) % n]; area += a[0] * bb[1] - bb[0] * a[1]; } area = Math.abs(area / 2);
-    if (b.lv >= 2 && area > 35) {
+    if (!lite && b.lv >= 2 && area > 35) {
       const pick = () => { for (let k = 0; k < 6; k++) { const x = cx + (R() - 0.5) * 6, z = cz + (R() - 0.5) * 6; if (pip(x, z, pts)) return [x, z]; } return [cx, cz]; };
       if (R() < 0.62) { const [x, z] = pick(); tanks.push(x, h, z, R() < 0.8 ? 0 : 1, 0.8 + R() * 0.5); if (R() < 0.3) { const [x2, z2] = pick(); tanks.push(x2, h, z2, 0, 0.8 + R() * 0.4); } }
       if (R() < 0.45) { const [x, z] = pick(); heads.push(x, h, z, col.r, col.g, col.b, R() * Math.PI); }
@@ -101,6 +102,38 @@ export function buildCity(data, U, tex, excl, quality) {
   geoR.computeBoundingSphere();
 
   // ---- wall material: tinted plaster + procedural windows/shutters, lit at night
+  if (!MATS) MATS = makeMats(U, tex);
+  const { wallMat, roofMat, tankMat, headMat } = MATS;
+  const walls = new THREE.Mesh(geoW, wallMat); walls.castShadow = walls.receiveShadow = true;
+  const roofs = new THREE.Mesh(geoR, roofMat); roofs.castShadow = true; roofs.receiveShadow = true;
+  return finish();
+  function finish() {
+  const g = new THREE.Group(); g.add(walls, roofs);
+  if (lite) return g;
+  /* furniture */
+  const nT = tanks.length / 5;
+  const tankGeo = new THREE.CylinderGeometry(0.62, 0.66, 1.3, 14); tankGeo.translate(0, 0.65 + 0.95, 0);
+  const tankM = new THREE.InstancedMesh(tankGeo, tankMat, nT);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
+  for (let i = 0; i < nT; i++) {
+    const s = tanks[i * 5 + 4]; ps.set(tanks[i * 5], tanks[i * 5 + 1] - 0.95 + 0.0, tanks[i * 5 + 2]); sc.set(s, s, s);
+    m4.compose(ps, q, sc); tankM.setMatrixAt(i, m4);
+    tankM.setColorAt(i, tanks[i * 5 + 3] ? col.setRGB(0.16, 0.3, 0.55) : col.setRGB(0.035, 0.035, 0.04));
+  }
+  tankM.castShadow = true; tankM.receiveShadow = true;
+  const nH = heads.length / 7;
+  const headGeo = new THREE.BoxGeometry(2.6, 2.5, 3.0); headGeo.translate(0, 1.25, 0);
+  const headM = new THREE.InstancedMesh(headGeo, headMat, nH);
+  for (let i = 0; i < nH; i++) {
+    ps.set(heads[i * 7], heads[i * 7 + 1], heads[i * 7 + 2]); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heads[i * 7 + 6]); sc.set(1, 1, 1);
+    m4.compose(ps, q, sc); headM.setMatrixAt(i, m4); headM.setColorAt(i, col.setRGB(heads[i * 7 + 3], heads[i * 7 + 4], heads[i * 7 + 5]));
+  }
+  headM.castShadow = headM.receiveShadow = true;
+  g.add(tankM, headM);
+  return g;
+  }
+}
+function makeMats(U, tex) {
   const wallMat = new THREE.MeshStandardMaterial({ map: tex.conc, normalMap: tex.concNW, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 0.92, metalness: 0 });
   wallMat.onBeforeCompile = s => {
     s.uniforms.uNight = U.uNight;
@@ -113,6 +146,20 @@ float h31(vec3 p){ p=fract(p*0.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p
 { vec4 tx = texture2D(map, vM/3.5); float l = dot(tx.rgb, vec3(0.299,0.587,0.114));
   diffuseColor.rgb *= mix(1.0, l/0.23, 0.55);
   float H = vInfo.x, seed = vInfo.y; vec2 m = vM;
+  // Terai mix: ~22% exposed red brick (often unplastered upper floors), ~12% bare grey concrete frame
+  float kind = fract(seed*19.37);
+  float brickZone = step(kind, 0.22) * mix(1.0, step(3.1, m.y), step(0.11, kind));
+  if (brickZone > 0.5) {
+    float row = floor(m.y/0.075), off = mod(row, 2.0)*0.115;
+    float bv = h31(vec3(floor((m.x+off)/0.23), row, seed*13.0));
+    vec3 brick = vec3(0.50, 0.27, 0.19) * (0.78 + 0.36*bv) * (0.9 + 0.2*fract(seed*41.0));
+    float fw = fwidth(m.y/0.075);
+    float mortar = (1.0 - smoothstep(0.0, 0.14, fract(m.y/0.075))) * (1.0 - smoothstep(0.25, 0.7, fw));
+    brick = mix(brick, vec3(0.6, 0.56, 0.5), mortar*0.55 + 0.12*smoothstep(0.5, 1.5, fw));
+    diffuseColor.rgb = brick;
+  } else if (kind > 0.88) {
+    diffuseColor.rgb = vec3(0.56, 0.55, 0.52) * (0.85 + 0.25*fract(seed*7.7));
+  }
   float fl = floor(m.y/3.1), fy = fract(m.y/3.1);
   float bay = 2.9 + fract(seed*7.31)*1.1; float bx = floor(m.x/bay), fx = fract(m.x/bay);
   float hh = h31(vec3(bx, fl, seed*97.0));
@@ -147,9 +194,6 @@ float h31(vec3 p){ p=fract(p*0.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 totalEmissiveRadiance += wlit * mix(vec3(1.0,0.6,0.28), vec3(1.0,0.92,0.8), wshop) * (wshop>0.5 ? 0.9 : 0.75);`);
   };
-  const walls = new THREE.Mesh(geoW, wallMat); walls.castShadow = walls.receiveShadow = true;
-
-  // ---- roof material: the real aerial photo of each roof (world-space projection)
   const roofMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
   roofMat.onBeforeCompile = s => {
     Object.assign(s.uniforms, U);
@@ -158,31 +202,8 @@ totalEmissiveRadiance += wlit * mix(vec3(1.0,0.6,0.28), vec3(1.0,0.92,0.8), wsho
     s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;\n' + IMAGERY_GLSL)
       .replace('#include <map_fragment>', '{ vec3 im = imagery(vWP.xz); float l = dot(im, vec3(0.3,0.59,0.11)); diffuseColor.rgb *= mix(vec3(l*0.7+0.12)*vec3(1.0,0.98,0.95), im, 0.55); }');
   };
-  const roofs = new THREE.Mesh(geoR, roofMat); roofs.castShadow = true; roofs.receiveShadow = true;
-
-  // ---- tanks
-  const nT = tanks.length / 5;
-  const tankGeo = new THREE.CylinderGeometry(0.62, 0.66, 1.3, 14); tankGeo.translate(0, 0.65 + 0.95, 0);
   const tankMat = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0 });
-  const tankM = new THREE.InstancedMesh(tankGeo, tankMat, nT);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
-  for (let i = 0; i < nT; i++) {
-    const s = tanks[i * 5 + 4]; ps.set(tanks[i * 5], tanks[i * 5 + 1] - 0.95 + 0.0, tanks[i * 5 + 2]); sc.set(s, s, s);
-    m4.compose(ps, q, sc); tankM.setMatrixAt(i, m4);
-    tankM.setColorAt(i, tanks[i * 5 + 3] ? col.setRGB(0.16, 0.3, 0.55) : col.setRGB(0.035, 0.035, 0.04));
-  }
-  tankM.castShadow = true; tankM.receiveShadow = true;
-  // ---- stair heads
-  const nH = heads.length / 7;
-  const headGeo = new THREE.BoxGeometry(2.6, 2.5, 3.0); headGeo.translate(0, 1.25, 0);
-  const headM = new THREE.InstancedMesh(headGeo, wallMatSimple(tex), nH);
-  for (let i = 0; i < nH; i++) {
-    ps.set(heads[i * 7], heads[i * 7 + 1], heads[i * 7 + 2]); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heads[i * 7 + 6]); sc.set(1, 1, 1);
-    m4.compose(ps, q, sc); headM.setMatrixAt(i, m4); headM.setColorAt(i, col.setRGB(heads[i * 7 + 3], heads[i * 7 + 4], heads[i * 7 + 5]));
-  }
-  headM.castShadow = headM.receiveShadow = true;
-  const g = new THREE.Group(); g.add(walls, roofs, tankM, headM);
-  return g;
+  return { wallMat, roofMat, tankMat, headMat: wallMatSimple(tex) };
 }
 function wallMatSimple(tex) {
   return new THREE.MeshStandardMaterial({ roughness: 0.92, color: 0xffffff });

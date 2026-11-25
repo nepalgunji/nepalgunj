@@ -27,7 +27,8 @@ const BASE = { fog: 0.0002, sun: 3, exp: 0.9, env: 0.5 };
 export const CL = { fog: 0, rain: 0, heat: 0, desat: 0, cool: 0, warm: 0, dark: 0, wet: 0, flash: 0 };
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: SHOT });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
+const TM = new URLSearchParams(location.search).get('tm');
+renderer.toneMapping = TM === 'aces' ? THREE.ACESFilmicToneMapping : THREE.AgXToneMapping; renderer.toneMappingExposure = 0.9;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 let PR = Math.min(devicePixelRatio || 1, MOBILE ? 1.5 : 1.75); renderer.setPixelRatio(PR);
 const scene = new THREE.Scene();
@@ -81,7 +82,7 @@ function probeHorizon(force) {
 const _dir = new THREE.Vector3(); const _cityGlow = new THREE.Color(0.025, 0.018, 0.016); const _hillBase = new THREE.Color(0.04, 0.06, 0.07); const fogNow = new THREE.Color();
 const sunDir = new THREE.Vector3();
 const sunL = new THREE.DirectionalLight(0xffffff, 3); sunL.castShadow = true;
-sunL.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
+sunL.shadow.mapSize.set(MOBILE ? 1024 : 3072, MOBILE ? 1024 : 3072);
 sunL.shadow.bias = -0.0004; sunL.shadow.normalBias = 0.6; sunL.shadow.radius = 3;
 scene.add(sunL, sunL.target);
 const hemi = new THREE.HemisphereLight(0xbcd2ff, 0x5a4a35, 0.4); scene.add(hemi);
@@ -388,10 +389,41 @@ function requestNearAt(x, z) {
   const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45');
   t.load(null, 10).then(t => { const old = NEAR.cur; NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); NEAR.busy = false; setTimeout(() => old.tex.dispose(), 500); });
 }
+// ───────── outskirts buildings: 1 km tiles streamed by distance (OSM + Microsoft footprints)
+const TILES = { idx: null, live: new Map(), busy: 0, tex: null };
+function disposeGroup(g) { g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+function tileLOD(rec, d) {
+  const near = d < 1700, mid = d < 3200;
+  if (rec.lod === (near ? 2 : mid ? 1 : 0)) return; rec.lod = near ? 2 : mid ? 1 : 0;
+  rec.g.children.forEach((o, i) => { o.castShadow = near; if (i >= 2) o.visible = mid; });
+}
+function updateTiles(tx, tz, conc = 2) {
+  const I = TILES.idx; if (!I || !TILES.tex) return 0;
+  const Rl = (MOBILE ? 2600 : 4200) * (adapt > 1 ? 0.75 : 1), Ru = Rl + 900, G = I.g;
+  for (const [k, t] of TILES.live) {
+    const d = Math.hypot(t.cx - tx, t.cz - tz);
+    if (d > Ru) { if (t.g) { scene.remove(t.g); disposeGroup(t.g); } TILES.live.delete(k); }
+    else if (t.g) tileLOD(t, d);
+  }
+  const want = [];
+  for (const [ix, iz] of I.tiles) { const k = ix + '_' + iz; if (TILES.live.has(k)) continue; const cx = ix * G + G / 2, cz = iz * G + G / 2, d = Math.hypot(cx - tx, cz - tz); if (d < Rl) want.push({ k, cx, cz, d }); }
+  want.sort((a, b) => a.d - b.d);
+  for (const t of want.slice(0, Math.max(0, conc - TILES.busy))) {
+    TILES.busy++; const rec = { cx: t.cx, cz: t.cz, g: null, lod: -1 }; TILES.live.set(t.k, rec);
+    loadCity(`assets/w3d/t/${t.k}.bin`).then(d => {
+      if (TILES.live.get(t.k) !== rec) return;
+      for (const b of d.buildings) for (const p of b.pts) { p[0] += t.cx; p[1] += t.cz; }
+      d.seed = (t.cx * 7 + t.cz * 13) | 0;
+      rec.g = buildCity(d, U, TILES.tex, [], 0, false); scene.add(rec.g); tileLOD(rec, Math.hypot(t.cx - controls.target.x, t.cz - controls.target.z));
+    }).catch(() => { }).finally(() => { TILES.busy--; });
+  }
+  return want.length;
+}
 // test/automation hook: force sharp tiers around a point and resolve when they have landed
 AERIAL.loadDetail = async (x, z) => {
   if (NEAR) { const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45'); await t.load(null, 12); NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); }
   const g = 500, kx = Math.round(x / g), kz = Math.round(z / g); focusKey = ''; requestFocusAt(x, z); const e = focusCache.get(kx + ',' + kz); if (e) await e.p;
+  for (let i = 0; i < 400; i++) { const left = updateTiles(x, z, 6); if (!left && !TILES.busy) break; await new Promise(r => setTimeout(r, 60)); }
 };
 // ───────── focus tier: sharp z18 imagery around wherever the camera looks (when low)
 const focusCache = new Map(); let focusKey = '';
@@ -435,6 +467,7 @@ async function init() {
   const LM = { temple: [-21.8, 4.8], hanuman: [-128.7, 66.3], tribhuvan: [-29.1, 429.8] };
   const excl = [[...LM.temple, 16], [...LM.hanuman, 11], [...LM.tribhuvan, 10]];
   scene.add(buildCity(city, U, tex, excl, MOBILE ? 0 : 1));
+  TILES.tex = tex; fetch('assets/w3d/t/index.json').then(r => r.json()).then(j => { TILES.idx = j; }).catch(() => { });
   scene.add(buildWater(city.water, U, tex));
   const glow = roadGlow(city.roads); U.tGlow.value = glow.tex; U.bGlow.value.copy(glow.bounds);
   streetPts = buildStreetLights(city.roads);
@@ -491,7 +524,7 @@ function frame() {
   const sc = sunL.shadow.camera; sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 10; sc.far = 4000; sc.updateProjectionMatrix();
   const sd = curEl > -4 ? sunDir : _v.set(-0.4, 0.6, -0.5).normalize();
   sunL.target.position.copy(tg); sunL.position.copy(tg).addScaledVector(sd, 1600);
-  focusT += dt; if (!SHOT && focusT > 0.5 && U.tDetail.value) { focusT = 0; requestNearAt(tg.x, tg.z); if (dist < 2400) requestFocusAt(tg.x, tg.z); }
+  focusT += dt; if (!SHOT && focusT > 0.5 && U.tDetail.value) { focusT = 0; requestNearAt(tg.x, tg.z); updateTiles(tg.x, tg.z); if (dist < 2400) requestFocusAt(tg.x, tg.z); }
   const night = U.uNight.value, dusk = smooth(4, -2, curEl);
   if (vehicles) { vehicles.update(dt); vehicles.head.material.uniforms.uOp.value = dusk; vehicles.tail.material.uniforms.uOp.value = dusk; }
   if (streetPts) streetPts.material.uniforms.uOp.value = smooth(2, -4, curEl);
