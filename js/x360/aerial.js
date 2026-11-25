@@ -335,6 +335,7 @@ function stepFly(dt) {
   camera.lookAt(controls.target);
   if (f.t >= 1) { flying = null; f.res(); }
 }
+export function home() { return flyTo(toX(81.6447), toZ(28.0652), { dist: MOBILE ? 7600 : 6800, polar: 0.62, dur: 3.2 }); }
 export function setMinDistance(d) { controls.minDistance = d ?? MIN_D; }
 export function setEnabled(on) { controls.enabled = on; AERIAL.paused = !on; if (on) { lastFrame = performance.now(); } }
 
@@ -357,8 +358,22 @@ function updatePins() {
     _pp.copy(o.v).project(camera);
     const vis = _pp.z < 1 && Math.abs(_pp.x) < 1.1 && Math.abs(_pp.y) < 1.1 && !AERIAL.hidePins;
     o.el.classList.toggle('on', vis);
-    if (vis) { o.el.style.transform = `translate3d(${((_pp.x * 0.5 + 0.5) * W).toFixed(1)}px, ${((-_pp.y * 0.5 + 0.5) * H).toFixed(1)}px, 0)`; o.el.style.zIndex = String(1000 - Math.round(_pp.z * 900)); }
+    o.sx = (_pp.x * 0.5 + 0.5) * W; o.sy = (-_pp.y * 0.5 + 0.5) * H; o.sz = _pp.z; o.vis = vis;
+    if (vis) { o.el.style.transform = `translate3d(${o.sx.toFixed(1)}px, ${o.sy.toFixed(1)}px, 0)`; o.el.style.zIndex = String(1000 - Math.round(_pp.z * 900)); }
     o.el.classList.toggle('far', d > 3000);
+  }
+  // label de-clutter: nearer labels keep their place, others stack upward (or hide) instead of overlapping
+  const placed = [];
+  for (const o of PINS.filter(o => o.vis && !(d > 3000 && o.p.kind !== 'pano')).sort((a, b) => a.sz - b.sz)) {
+    if (!o.lw) { const sp = o.el.querySelector('span'); o.lw = sp.offsetWidth || 110; o.lh = sp.offsetHeight || 26; }
+    let dy = 0, ok = false;
+    for (let k = 0; k < 4 && !ok; k++) {
+      dy = -k * (o.lh + 4);
+      const r = [o.sx - o.lw / 2 - 3, o.sy - 12 - o.lh + dy - 2, o.sx + o.lw / 2 + 3, o.sy - 12 + dy + 2];
+      ok = !placed.some(q => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]);
+      if (ok) placed.push(r);
+    }
+    if (o.dy !== dy || o.hid !== !ok) { o.dy = dy; o.hid = !ok; o.el.style.setProperty('--dy', dy + 'px'); o.el.classList.toggle('stk', dy !== 0); o.el.classList.toggle('hid', !ok); }
   }
 }
 export function pinScreen(p) { const o = PINS.find(o => o.p === p); if (!o) return null; _pp.copy(o.v).project(camera); return [(_pp.x * 0.5 + 0.5) * innerWidth, (-_pp.y * 0.5 + 0.5) * innerHeight]; }
@@ -373,6 +388,11 @@ function requestNearAt(x, z) {
   const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45');
   t.load(null, 10).then(t => { const old = NEAR.cur; NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); NEAR.busy = false; setTimeout(() => old.tex.dispose(), 500); });
 }
+// test/automation hook: force sharp tiers around a point and resolve when they have landed
+AERIAL.loadDetail = async (x, z) => {
+  if (NEAR) { const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45'); await t.load(null, 12); NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); }
+  const g = 500, kx = Math.round(x / g), kz = Math.round(z / g); focusKey = ''; requestFocusAt(x, z); const e = focusCache.get(kx + ',' + kz); if (e) await e.p;
+};
 // ───────── focus tier: sharp z18 imagery around wherever the camera looks (when low)
 const focusCache = new Map(); let focusKey = '';
 function requestFocusAt(x, z) {

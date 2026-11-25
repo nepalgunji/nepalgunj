@@ -32,8 +32,8 @@
   <button data-h="20.2" title="Night"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Night</span></button>
 </nav>
 <button id="listBtn" aria-label="All places"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Places</span></button>
-<aside id="drawer" aria-label="Places"><ul></ul></aside>
-<div id="hint" aria-hidden="true"><span class="d">Drag to explore · tap a place</span><span class="m">Drag to explore · tap a place</span></div>
+<aside id="drawer" aria-label="Places"><label class="q"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="q" type="search" placeholder="Search · खोज्नुहोस्" autocomplete="off" aria-label="Search places"></label><ul></ul></aside>
+<div id="hint" aria-hidden="true"><span class="d">Drag to orbit · scroll to zoom · right-drag to pan · tap a place</span><span class="m">Drag to orbit · pinch to zoom · two fingers to pan</span></div>
 <section id="card" aria-live="polite"><h2></h2><p class="dev"></p><p class="line"></p></section>
 
 <div id="place" aria-hidden="true">
@@ -60,6 +60,7 @@
     <button data-c="monsoon"><svg viewBox="0 0 24 24"><path d="M7 14h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 5.1 4.5 4.5 0 0 0 7 14z"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3M13 9.5l-2 3h3l-2 3"/></svg><b>Monsoon</b><i>बर्षा</i></button>
   </div>
 </div>
+<div id="atools"><button id="homeBtn" aria-label="Whole city view" title="Whole city"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></svg></button><button id="sndBtn" aria-label="Ambient sound (off)" title="Sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="w" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button><button id="afsBtn" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
 <button id="tourBtn" aria-label="Auto tour"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Tour</span></button>
 
 <div id="loader"><div><p class="dev">नेपालगञ्ज</p><h1>Nepalgunj</h1><div class="bar"><i></i></div></div></div>

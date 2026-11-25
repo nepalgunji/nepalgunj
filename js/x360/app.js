@@ -1,6 +1,7 @@
-import { AERIAL, CL, start, addPins, flyTo, setHour, setEnabled, setMinDistance } from './aerial.js';
+import { AERIAL, CL, start, addPins, flyTo, setHour, setEnabled, setMinDistance, home } from './aerial.js';
 import { createPano } from './pano.js';
 import { createFX } from './fx.js';
+import { createSound } from './sound.js';
 import { PLACES } from './places.js';
 import { toX, toZ } from '../w3d/imagery.js';
 
@@ -48,6 +49,11 @@ if (Q.has('h')) tod.forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.h 
 const drawer = $('#drawer');
 $('#drawer ul').innerHTML = PLACES.map(p => `<li><button data-id="${p.id}"><img src="${thumbOf(p)}" alt="" loading="lazy"><span><b>${p.name}</b><small>${p.dev}</small></span>${p.kind === 'pano' ? `<em class="tag p">${p.partial ? 'Pano' : '360°'}</em>` : p.kind === 'film' ? '<em class="tag">Film</em>' : '<em class="tag">Aerial</em>'}</button></li>`).join('');
 $('#listBtn').onclick = e => { e.stopPropagation(); drawer.classList.toggle('on'); };
+// search (EN / नेपाली)
+const qIn = $('#q');
+qIn.oninput = () => { const q = qIn.value.trim().toLowerCase(); $$('#drawer li').forEach(li => { const p = byId[li.firstElementChild.dataset.id]; li.classList.toggle('x', !!q && !(p.name + ' ' + p.dev + ' ' + (p.line || '')).toLowerCase().includes(q)); }); };
+qIn.onkeydown = e => { if (e.key === 'Enter') { const li = [...$$('#drawer li')].find(l => !l.classList.contains('x')); if (li) { drawer.classList.remove('on'); go(byId[li.firstElementChild.dataset.id]); } } };
+$('#listBtn').addEventListener('click', () => { if (drawer.classList.contains('on') && !MOBILE) setTimeout(() => qIn.focus({ preventScroll: true }), 50); });
 drawer.onclick = e => { const b = e.target.closest('button[data-id]'); if (!b) return; drawer.classList.remove('on'); go(byId[b.dataset.id]); };
 addEventListener('pointerdown', e => { if (!drawer.contains(e.target) && e.target !== $('#listBtn')) drawer.classList.remove('on'); });
 
@@ -84,6 +90,8 @@ function nodeStrip(p, cur) {
     b.innerHTML = `<img src="${thumbOf(q)}" alt=""><span>${q.name} →</span>`;
     b.onclick = () => { if (q.kind === 'aerial') back().then(() => go(q)); else enterPlace(q, true); }; nodesEl.appendChild(b);
   }
+  const upd = () => nodesEl.classList.toggle('end', nodesEl.scrollLeft + nodesEl.clientWidth >= nodesEl.scrollWidth - 4);
+  nodesEl.onscroll = upd; requestAnimationFrame(() => { upd(); nodesEl.querySelector('.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }); });
 }
 function nearby(p) {
   if (p.lat == null) return [byId.bp];
@@ -176,6 +184,11 @@ $('#back').onclick = back;
 addEventListener('keydown', e => { if (e.key === 'Escape') { if (state.p) back(); else if (state.aerialPlace) { showCard(null); state.aerialPlace = null; setMinDistance(); } } });
 AERIAL.onFrame = (h, dist) => { if (state.aerialPlace && !state.flying && dist > 1100) { showCard(null); state.aerialPlace = null; setMinDistance(); } };
 $('#gyroBtn').onclick = async () => { const b = $('#gyroBtn'); if (pano.gyroOn) { pano.disableGyro(); b.classList.remove('on'); } else if (await pano.enableGyro()) b.classList.add('on'); };
+// aerial tools: whole-city view, optional ambience (off by default), full screen
+const snd = createSound();
+$('#homeBtn').onclick = () => { if (state.flying || state.p) return; showCard(null); state.aerialPlace = null; setMinDistance(); home(); };
+$('#sndBtn').onclick = () => { const on = snd.toggle(); $('#sndBtn').classList.toggle('on', on); $('#sndBtn').setAttribute('aria-label', 'Ambient sound (' + (on ? 'on' : 'off') + ')'); };
+$('#afsBtn').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => { }); };
 $('#fsBtn').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => { }); };
 
 // ── climate · मौसम (cross-faded; applies to aerial, panoramas and the fx overlay)
@@ -197,7 +210,7 @@ function setClimate(name, instant) {
 $('#climBtn').onclick = e => { e.stopPropagation(); const o = $('#clim').classList.toggle('open'); $('#climBtn').setAttribute('aria-expanded', o); };
 $('#climPanel').onclick = e => { const b = e.target.closest('button[data-c]'); if (!b) return; setClimate(b.dataset.c); $('#clim').classList.remove('open'); try { localStorage.setItem('ngj-climate', b.dataset.c); } catch { } };
 addEventListener('pointerdown', e => { if (!$('#clim').contains(e.target)) $('#clim').classList.remove('open'); });
-let flash = 0, nextBolt = 6, lastT = performance.now(), letter = 0, letterT = 0;
+let sndT = 0, flash = 0, nextBolt = 6, lastT = performance.now(), letter = 0, letterT = 0;
 function climLoop() {
   const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   const k = SHOT ? 1 : 1 - Math.pow(0.35, dt);   // ~2.5 s cross-fade
@@ -213,6 +226,7 @@ function climLoop() {
   const S = fx.S; S.rain = C.rain; S.fog = C.fog * (state.p ? 0.55 : 0.45); S.drops = C.drops * (state.p ? 1 : 0.5); S.flash = flash * C.light; S.night = night; S.warm = C.heat * 0.8;
   S.grain = state.p && film.classList.contains('on') ? 0.012 : MOBILE ? 0.035 : 0.05; // keep real footage crisp S.letter = letter; S.pan = state.p ? pano.yaw / 90 : 0;
   fx.render();
+  if (snd.on && (sndT += dt) > 0.5) { sndT = 0; snd.set({ rain: C.rain, wind: Math.min(1, C.fog + 0.3 * C.rain), inside: state.p ? 1 : 0 }); }
   if (!SHOT) requestAnimationFrame(climLoop);
 }
 climLoop();
@@ -249,4 +263,4 @@ AERIAL.onReady = () => {
   }
 };
 start();
-window.__x360 = { AERIAL, pano, go, back, PLACES, state, enterPlace, setClimate, fx, letterbox };
+window.__x360 = { home, AERIAL, pano, go, back, PLACES, state, enterPlace, setClimate, fx, letterbox };
