@@ -473,7 +473,9 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta()); const time = clock.elapsedTime; U.uTime.value = time;
   if (AERIAL.paused && !SHOT) { requestAnimationFrame(frame); return; }
   // climate (applied on top of the time-of-day lighting)
-  scene.fog.density = BASE.fog * (1 + 1.7 * CL.fog + 1.0 * CL.rain);
+  // thinner haze when high up so the whole municipality stays readable from the top
+  const fogK = clamp(2600 / camera.position.distanceTo(controls.target), 0.32, 1);
+  scene.fog.density = BASE.fog * (fogK + (1.7 * CL.fog + 1.0 * CL.rain) * Math.sqrt(fogK));
   sunL.intensity = BASE.sun * (1 - 0.65 * Math.max(CL.fog, CL.rain) + 0.25 * CL.heat);
   renderer.toneMappingExposure = BASE.exp * (1 - 0.1 * CL.rain + 0.12 * CL.heat + 0.05 * CL.fog) + CL.flash * 0.8;
   scene.environmentIntensity = BASE.env * (1 + 0.5 * CL.fog);
