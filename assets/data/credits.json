@@ -1123,5 +1123,14 @@
   "license": "Esri World Imagery terms; attribution 'Imagery © Esri, Maxar' shown on the map. Bulk re-hosting done at the site owner's request; the owner takes responsibility and will switch to live streaming if Esri objects.",
   "author": "Esri, Maxar, Earthstar Geographics, GIS user community",
   "notes": "z13 region (+25 km), z15 (+4 km), z16 (+1 km), z17 whole municipality bbox 81.586–81.703E, 27.997–28.134N; z18 urban core 81.590–81.657E, 28.026–28.094N. Built with tools/bake_sat.py. Esri z19 is not available for Nepalgunj."
+ },
+ {
+  "key": "bld-tiles",
+  "file": "assets/w3d/t/*.bin (120 tiles, 0.46 MB)",
+  "title": "3D building footprints for the whole sub-metropolitan city",
+  "page": "https://www.openstreetmap.org/copyright ; https://github.com/microsoft/GlobalMLBuildingFootprints",
+  "license": "OpenStreetMap (ODbL) + Microsoft Global ML Building Footprints (ODbL)",
+  "author": "OpenStreetMap contributors; Microsoft",
+  "notes": "15,186 OSM footprints outside the core + 6,074 Microsoft footprints where OSM had none (no overlap with OSM). Heights from OSM building:levels or Microsoft height when present, otherwise estimated from footprint size and distance to bazaars. Built with tools/build_tiles.py."
  }
 ]
