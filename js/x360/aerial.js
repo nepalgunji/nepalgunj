@@ -213,9 +213,9 @@ groundMat.onBeforeCompile = s => {
   // streetlight pools: a lamp every ~30 m along lit roads, sodium-orange or LED-white by neighbourhood
   vec2 lc = floor(vWP.xz / 30.0); vec2 lh = fract(sin(vec2(dot(lc, vec2(127.1, 311.7)), dot(lc, vec2(269.5, 183.3)))) * 43758.5);
   float ld = distance(vWP.xz, (lc + 0.25 + 0.5 * lh) * 30.0); float pool = exp(-ld * ld / 70.0);
-  float led = step(0.62, fract(sin(dot(floor(vWP.xz / 400.0), vec2(12.9898, 78.233))) * 43758.5));
-  vec3 lampC = mix(vec3(1.0, 0.58, 0.22), vec3(0.95, 0.92, 0.85), led);
-  totalEmissiveRadiance += (rg * 0.16 + lampC * dot(rg, vec3(0.4)) * pool * 1.5) * uNight; }`);
+  float led = step(0.8, fract(sin(dot(floor(vWP.xz / 400.0), vec2(12.9898, 78.233))) * 43758.5));
+  vec3 lampC = mix(vec3(1.0, 0.58, 0.22), vec3(0.92, 0.84, 0.68), led);
+  totalEmissiveRadiance += (rg * 0.16 + lampC * dot(rg, vec3(0.4)) * pool * 0.75) * uNight; }`);
 };
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, 1, 1).rotateX(-Math.PI / 2), groundMat);
 ground.receiveShadow = true; scene.add(ground);
