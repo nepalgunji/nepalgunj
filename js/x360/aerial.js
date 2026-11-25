@@ -115,7 +115,7 @@ export function setupLit(root) {
       m.userData.lit = 1; const own = m.onBeforeCompile; const key = own ? own.toString() : 'std';
       if (csm) csm.setupMaterial(m);
       const c = m.onBeforeCompile;
-      m.onBeforeCompile = (sh, r) => { if (csm) c.call(m, sh, r); if (own && own !== c) own.call(m, sh, r); if (sh.fragmentShader.includes('vViewPosition')) apFog(sh); };
+      m.onBeforeCompile = (sh, r) => { if (csm && c !== own) c.call(m, sh, r); if (own) own.call(m, sh, r); if (sh.fragmentShader.includes('vViewPosition')) apFog(sh); };
       m.customProgramCacheKey = () => key + (csm ? '|csm' : '') + '|ap';
       m.needsUpdate = true;
     }
