@@ -15,11 +15,9 @@ const BASE = new URL('../../assets/sat/', import.meta.url).href;
 const CITY = [81.586, 27.9967, 81.7033, 28.1337], padB = (b, km) => [b[0] - km / 98.3, b[1] - km / 110.6, b[2] + km / 98.3, b[3] + km / 110.6];
 const BAKED = { 13: padB(CITY, 25), 15: padB(CITY, 4), 16: padB(CITY, 1), 17: padB(CITY, 0.3), 18: [81.590, 28.026, 81.657, 28.094] };
 export const BAKED_MAX = (lon, lat) => { const b = BAKED[18]; return lon > b[0] && lon < b[2] && lat > b[1] && lat < b[3] ? 18 : 17; };
-function tileURL(z, x, y) {
-  const b = BAKED[z];
-  if (b && x >= Math.floor(lon2tx(b[0], z)) && x <= Math.floor(lon2tx(b[2], z)) && y >= Math.floor(lat2ty(b[3], z)) && y <= Math.floor(lat2ty(b[1], z))) return `${BASE}${z}/${x}/${y}.webp`;
-  return ESRI(z, x, y);
-}
+const baked = (z, x, y) => { const b = BAKED[z]; return !!b && x >= Math.floor(lon2tx(b[0], z)) && x <= Math.floor(lon2tx(b[2], z)) && y >= Math.floor(lat2ty(b[3], z)) && y <= Math.floor(lat2ty(b[1], z)); };
+// baked tiles are packed 4x4 into 1024px "super tiles" (16x fewer requests)
+const superURL = (z, X, Y) => `${BASE}s/${z}/${X}_${Y}.webp`;
 
 export function makeTier(z, cx, cz, nx, ny, fill) {
   const tx0 = Math.floor(lon2tx(toLon(cx), z) - nx / 2), ty0 = Math.floor(lat2ty(toLat(cz), z) - ny / 2);
@@ -35,20 +33,28 @@ export function makeTier(z, cx, cz, nx, ny, fill) {
   // load centre tiles first
   jobs.sort((a, b) => Math.hypot(a[0] - nx / 2, a[1] - ny / 2) - Math.hypot(b[0] - nx / 2, b[1] - ny / 2));
   const tier = { z, canvas, ctx, tex, bounds, cx, cz, total: jobs.length, done: 0, ok: 0 };
-  tier.load = (onTile, conc = 10) => new Promise(res => {
+  // group jobs: one request per baked super tile, one per Esri tile outside the baked area
+  const groups = new Map();
+  for (const [i, j] of jobs) {
+    const x = tx0 + i, y = ty0 + j;
+    const key = baked(z, x, y) ? superURL(z, x >> 2, y >> 2) : ESRI(z, x, y);
+    if (!groups.has(key)) groups.set(key, []); groups.get(key).push([i, j, x, y]);
+  }
+  const G = [...groups.entries()];
+  tier.load = (onTile, conc = 6) => new Promise(res => {
     let k = 0, active = 0, dirty = 0;
     const next = () => {
-      if (k >= jobs.length && active === 0) { tex.needsUpdate = true; return res(tier); }
-      while (active < conc && k < jobs.length) {
-        const [i, j] = jobs[k++]; active++;
+      if (k >= G.length && active === 0) { tex.needsUpdate = true; return res(tier); }
+      while (active < conc && k < G.length) {
+        const [url, list] = G[k++]; active++;
         const img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async';
-        img.onload = () => { ctx.drawImage(img, i * 256, j * 256); tier.ok++; fin(); };
-        const u = tileURL(z, tx0 + i, ty0 + j);
-        img.onerror = () => { if (img.src.startsWith(BASE)) { img.src = ESRI(z, tx0 + i, ty0 + j); return; } fin(); };
-        img.src = u;
+        const sup = url.startsWith(BASE);
+        img.onload = () => { for (const [i, j, x, y] of list) { if (sup) ctx.drawImage(img, (x & 3) * 256, (y & 3) * 256, 256, 256, i * 256, j * 256, 256, 256); else ctx.drawImage(img, i * 256, j * 256); } tier.ok += list.length; fin(list.length); };
+        img.onerror = () => fin(list.length);
+        img.src = url;
       }
     };
-    const fin = () => { active--; tier.done++; if (++dirty >= 12) { dirty = 0; tex.needsUpdate = true; } onTile && onTile(tier); next(); };
+    const fin = n => { active--; tier.done += n; if (++dirty >= 3) { dirty = 0; tex.needsUpdate = true; } if (onTile) for (let q = 0; q < n; q++) onTile(tier); next(); };
     next();
   });
   return tier;
