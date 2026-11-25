@@ -136,7 +136,7 @@ scene.fog = new THREE.FogExp2(0xc8c4bc, 0.00026);
 const ramp = (stops, e) => { if (e <= stops[0][0]) return stops[0].slice(1); for (let i = 1; i < stops.length; i++) if (e <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (e - a[0]) / (b[0] - a[0]); return a.slice(1).map((v, k) => lerp(v, b[k + 1], t)); } return stops[stops.length - 1].slice(1); };
 //            el     r     g     b
 const FOG = [[-14, 0.012, 0.016, 0.03], [-6, 0.06, 0.06, 0.09], [-1, 0.42, 0.3, 0.3], [4, 0.85, 0.58, 0.4], [12, 0.82, 0.72, 0.62], [30, 0.72, 0.74, 0.76], [60, 0.68, 0.75, 0.84]];
-const SUNC = [[-4, 1, 0.4, 0.2, 0], [1, 1, 0.42, 0.18, 0.6], [6, 1, 0.62, 0.36, 2.0], [15, 1, 0.84, 0.66, 3.0], [40, 1, 0.96, 0.9, 3.6]];
+const SUNC = [[-4, 1, 0.38, 0.16, 0], [1, 1, 0.45, 0.18, 1.1], [6, 1, 0.6, 0.3, 2.7], [15, 1, 0.8, 0.56, 3.2], [40, 1, 0.96, 0.9, 3.6]];
 const HEMI = [[-14, 0.08, 0.1, 0.18, 0.5], [-4, 0.2, 0.2, 0.3, 0.4], [2, 0.6, 0.55, 0.6, 0.25], [15, 0.75, 0.82, 1.0, 0.25], [50, 0.75, 0.84, 1.0, 0.3]];
 let curEl = 99, curAz = 0;
 // real solar position (NOAA) for Nepalgunj on today's date; hour = Nepal time (UTC+5:45)
@@ -209,7 +209,13 @@ groundMat.onBeforeCompile = s => {
       diffuseColor.rgb *= im; }`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 { vec2 gu = (vWP.xz - bGlow.xy)/(bGlow.zw-bGlow.xy); float gin = step(0.0,gu.x)*step(gu.x,1.0)*step(0.0,gu.y)*step(gu.y,1.0);
-  totalEmissiveRadiance += texture2D(tGlow, vec2(gu.x,1.0-gu.y)).rgb * gin * uNight * 0.3; }`);
+  vec3 rg = texture2D(tGlow, vec2(gu.x,1.0-gu.y)).rgb * gin;
+  // streetlight pools: a lamp every ~30 m along lit roads, sodium-orange or LED-white by neighbourhood
+  vec2 lc = floor(vWP.xz / 30.0); vec2 lh = fract(sin(vec2(dot(lc, vec2(127.1, 311.7)), dot(lc, vec2(269.5, 183.3)))) * 43758.5);
+  float ld = distance(vWP.xz, (lc + 0.25 + 0.5 * lh) * 30.0); float pool = exp(-ld * ld / 70.0);
+  float led = step(0.62, fract(sin(dot(floor(vWP.xz / 400.0), vec2(12.9898, 78.233))) * 43758.5));
+  vec3 lampC = mix(vec3(1.0, 0.58, 0.22), vec3(0.95, 0.92, 0.85), led);
+  totalEmissiveRadiance += (rg * 0.16 + lampC * dot(rg, vec3(0.4)) * pool * 1.5) * uNight; }`);
 };
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000, 1, 1).rotateX(-Math.PI / 2), groundMat);
 ground.receiveShadow = true; scene.add(ground);
@@ -244,18 +250,21 @@ function setupPost() {
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   grade = new ShaderPass({
-    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uDesat: { value: 0 }, uCool: { value: 0 }, uWarm: { value: 0 }, uDark: { value: 0 }, uWet: { value: 0 }, uHeat: { value: 0 }, uFlash: { value: 0 } },
+    uniforms: { tDiffuse: { value: null }, uT: { value: 0 }, uDesat: { value: 0 }, uCool: { value: 0 }, uWarm: { value: 0 }, uDark: { value: 0 }, uWet: { value: 0 }, uHeat: { value: 0 }, uFlash: { value: 0 }, uVib: { value: 0.16 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-    fragmentShader: `uniform sampler2D tDiffuse; uniform float uT, uDesat, uCool, uWarm, uDark, uWet, uHeat, uFlash; varying vec2 vUv;
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float uT, uDesat, uCool, uWarm, uDark, uWet, uHeat, uFlash, uVib; varying vec2 vUv;
       void main(){ vec2 uv = vUv;
         if (uHeat > 0.01) { float hb = smoothstep(0.35, 0.75, uv.y) * smoothstep(1.0, 0.7, uv.y); uv.x += uHeat*hb*0.0016*sin(uv.y*380.0 + uT*6.0); uv.y += uHeat*hb*0.0011*sin(uv.x*240.0 - uT*4.5); }
         vec3 c = texture2D(tDiffuse, uv).rgb; float l = dot(c, vec3(0.2126,0.7152,0.0722));
+        float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+        c = mix(vec3(l), c, 1.0 + uVib * (1.0 - sat));   // vibrance: lift muted colours, leave saturated ones
         c = mix(c, vec3(l), uDesat);
         c *= mix(vec3(1.0), vec3(0.86, 0.95, 1.1), uCool);
         c *= mix(vec3(1.0), vec3(1.1, 1.0, 0.84), uWarm);
         c = mix(c, c*c*1.3, uWet*0.3);
         c *= 1.0 - 0.5*uDark;
-        c = mix(c, smoothstep(0.0, 1.0, c), 0.18);   // gentle filmic S-curve
+        c = mix(c, smoothstep(0.0, 1.0, c), 0.22);   // gentle filmic S-curve
+        vec2 vq = vUv - 0.5; c *= 1.0 - 0.22 * dot(vq, vq);   // faint lens falloff
         c += uFlash * vec3(0.55, 0.6, 0.7);
         gl_FragColor = vec4(c, 1.0); }`,
   });
@@ -441,7 +450,17 @@ function requestNearAt(x, z) {
   if (Math.abs(x - c.cx) < ext * 0.22 && Math.abs(z - c.cz) < ext * 0.22) return;
   NEAR.busy = true;
   const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45');
-  t.load(null, 10).then(t => { const old = NEAR.cur; NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); NEAR.busy = false; setTimeout(() => old.tex.dispose(), 500); });
+  t.load(null, 10).then(t => { const old = NEAR.cur; NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); NEAR.busy = false; setTimeout(() => old.tex.dispose(), 500); setTimeout(() => { if (NEAR.cur === t) outskirtsTrees(t); }, 2500); });
+}
+// outskirts trees: re-planted from the satellite greens whenever the sharp tier moves outside the core
+let DYN = null, CORE_B = null, CITY_W = [];
+function outskirtsTrees(t) {
+  if (!CORE_B || !t.ctx) return;
+  const b = t.bounds, inCore = b.x >= CORE_B.x - 50 && b.z <= CORE_B.z + 50 && b.y >= CORE_B.y - 50 && b.w <= CORE_B.w + 50;
+  const drop = () => { if (DYN) { scene.remove(DYN); DYN.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); DYN = null; } };
+  if (inCore) { drop(); return; }
+  const bl = []; for (const r of TILES.live.values()) if (r.b && r.cx > b.x - 600 && r.cx < b.z + 600 && r.cz > b.y - 600 && r.cz < b.w + 600) for (const q of r.b) bl.push(q);
+  try { const tr = buildTrees(t, bl, [], MOBILE ? 1500 : 4000, U, CITY_W, CORE_B); drop(); DYN = tr.group; setupLit(DYN); scene.add(DYN); window.__dynTrees = tr.count; } catch (e) { console.warn('trees', e); }
 }
 // ───────── outskirts buildings: 1 km tiles streamed by distance (OSM + Microsoft footprints)
 const TILES = { idx: null, live: new Map(), busy: 0, tex: null };
@@ -467,7 +486,7 @@ function updateTiles(tx, tz, conc = 2) {
     loadCity(`assets/w3d/t/${t.k}.bin`).then(d => {
       if (TILES.live.get(t.k) !== rec) return;
       for (const b of d.buildings) for (const p of b.pts) { p[0] += t.cx; p[1] += t.cz; }
-      d.seed = (t.cx * 7 + t.cz * 13) | 0;
+      d.seed = (t.cx * 7 + t.cz * 13) | 0; rec.b = d.buildings;
       rec.g = buildCity(d, U, TILES.tex, [], 0, false); setupLit(rec.g); scene.add(rec.g); tileLOD(rec, Math.hypot(t.cx - controls.target.x, t.cz - controls.target.z));
     }).catch(() => { }).finally(() => { TILES.busy--; });
   }
@@ -478,6 +497,7 @@ AERIAL.loadDetail = async (x, z) => {
   if (NEAR) { const t = makeTier(17, x, z, NEAR.n[0], NEAR.n[1], '#555a45'); await t.load(null, 12); NEAR.cur = t; U.tNear.value = t.tex; U.bNear.value.copy(t.bounds); }
   const g = 500, kx = Math.round(x / g), kz = Math.round(z / g); focusKey = ''; requestFocusAt(x, z); const e = focusCache.get(kx + ',' + kz); if (e) await e.p;
   for (let i = 0; i < 400; i++) { const left = updateTiles(x, z, 6); if (!left && !TILES.busy) break; await new Promise(r => setTimeout(r, 60)); }
+  if (NEAR) outskirtsTrees(NEAR.cur);
 };
 // ───────── focus tier: sharp z18 imagery around wherever the camera looks (when low)
 const focusCache = new Map(); let focusKey = '';
@@ -500,7 +520,7 @@ async function init() {
   // far z13 (region) · mid z15 (whole municipality) · near z17 (follows the camera) · focus z18 (look point)
   const CC = [toX(81.6447), toZ(28.0652)];
   const far = makeTier(13, CC[0], CC[1], 8, 8, '#3f4a30'), mid = makeTier(15, CC[0], CC[1], MOBILE ? 12 : 16, MOBILE ? 12 : 16, '#4a5038'), nearT = makeTier(17, 313, -17, tierN[0], tierN[1], '#555a45');
-  NEAR = { cur: nearT, n: tierN, busy: false };
+  NEAR = { cur: nearT, n: tierN, busy: false }; CORE_B = nearT.bounds.clone();
   U.tFar.value = far.tex; U.bFar.value.copy(far.bounds); U.tMid.value = mid.tex; U.bMid.value.copy(mid.bounds); U.tNear.value = nearT.tex; U.bNear.value.copy(nearT.bounds);
   progress.b = far.total + mid.total + nearT.total + 12;
   const tick = () => { progress.a++; setBar(); };
@@ -522,7 +542,7 @@ async function init() {
   const excl = [[...LM.temple, 16], [...LM.hanuman, 11], [...LM.tribhuvan, 10]];
   scene.add(buildCity(city, U, tex, excl, MOBILE ? 0 : 1));
   TILES.tex = tex; fetch('assets/w3d/t/index.json').then(r => r.json()).then(j => { TILES.idx = j; }).catch(() => { });
-  scene.add(buildWater(city.water, U, tex));
+  scene.add(buildWater(city.water, U, tex)); CITY_W = city.water;
   const glow = roadGlow(city.roads); U.tGlow.value = glow.tex; U.bGlow.value.copy(glow.bounds);
   streetPts = buildStreetLights(city.roads);
   vehicles = buildVehicles(city.roads, MOBILE ? 140 : 320);
@@ -568,10 +588,10 @@ function frame() {
   // aerial-perspective sun scatter: strongest at low sun, damped by fog/rain, off at night
   AP.uSunV.value.copy(sunDir).transformDirection(camera.matrixWorldInverse);
   AP.uSunCol.value.copy(sunL.color).multiplyScalar(curEl > -2 ? 1 : 0);
-  AP.uScat.value = lerp(0.12, 0.75, smooth(28, 1, curEl)) * smooth(-3, 1, curEl) * (1 - 0.6 * Math.max(CL.fog, CL.rain));
+  AP.uScat.value = lerp(0.14, 1.05, smooth(28, 1, curEl)) * smooth(-3, 1, curEl) * (1 + 0.5 * CL.fog - 0.7 * CL.rain);  // fog = strong Mie forward glow, rain = overcast
   renderer.toneMappingExposure = BASE.exp * (1 - 0.1 * CL.rain + 0.12 * CL.heat + 0.05 * CL.fog) + CL.flash * 0.8;
   scene.environmentIntensity = BASE.env * (1 + 0.5 * CL.fog);
-  if (grade) { const g = grade.uniforms; g.uT.value = time; g.uDesat.value = CL.desat; g.uCool.value = CL.cool; g.uWarm.value = CL.warm; g.uDark.value = CL.dark; g.uWet.value = CL.wet; g.uHeat.value = CL.heat; g.uFlash.value = CL.flash; }
+  if (grade) { const g = grade.uniforms; g.uT.value = time; g.uDesat.value = CL.desat; g.uCool.value = CL.cool; g.uWarm.value = CL.warm; g.uDark.value = CL.dark; g.uWet.value = CL.wet; g.uHeat.value = CL.heat; g.uFlash.value = CL.flash; g.uVib.value = 0.16 * (1 - 0.6 * U.uNight.value) * (1 - CL.desat); }
   hour += (hourTarget - hour) * (SHOT ? 1 : 1 - Math.pow(0.25, dt));
   if (Math.abs(hourTarget - hour) < 0.002) hour = hourTarget;
   applyTime(hour);

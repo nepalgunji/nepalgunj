@@ -34,7 +34,7 @@ function canopyGeo(seed) {
   return out;
 }
 
-export function buildTrees(tier, buildings, excl, max, U, water = []) {
+export function buildTrees(tier, buildings, excl, max, U, water = [], skip = null) {
   const { canvas, bounds } = tier; const W = canvas.width, H = canvas.height;
   const img = tier.ctx.getImageData(0, 0, W, H).data;
   // occupancy: buildings + water drawn in the same projection
@@ -49,6 +49,7 @@ export function buildTrees(tier, buildings, excl, max, U, water = []) {
   const mpx = (bounds.z - bounds.x) / W;
   for (let z = bounds.y + 4; z < bounds.w - 4; z += step) for (let x = bounds.x + 4; x < bounds.z - 4; x += step) {
     const jx = x + (R() - 0.5) * step, jz = z + (R() - 0.5) * step;
+    if (skip && jx > skip.x && jx < skip.z && jz > skip.y && jz < skip.w) continue;
     if (excl.some(e => Math.hypot(jx - e[0], jz - e[1]) < e[2])) continue;
     const px = Math.floor((jx - bounds.x) / mpx), py = Math.floor((jz - bounds.y) / ((bounds.w - bounds.y) / H));
     // average 3x3 px
