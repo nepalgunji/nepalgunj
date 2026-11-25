@@ -425,7 +425,7 @@ async function init() {
     loadT('assets/w3d/hanuman.webp', true), loadT('assets/tex2/dry_ground_01_diff.webp', false), loadT('assets/tex2/red_plaster_weathered_nor_gl.webp', false, 2), loadT('assets/tex2/dirty_concrete_diff.webp', true, 2),
   ]).then(r => { r.forEach(tick); return r; });
   const cityP = loadCity('assets/w3d/city.bin').then(d => { tick(); return d; });
-  const tilesP = Promise.all([far.load(tick, 8), mid.load(tick, 8), nearT.load(tick, 10)]);
+  const tilesP = Promise.all([far.load(tick, 4), mid.load(tick, 6), nearT.load(tick, 8)]);
   const [tx, city] = await Promise.all([texP, cityP]);
   const tex = { conc: tx[0], concN: tx[1], plaster: tx[2], plasterN: tx[3], marble: tx[4], waterN: tx[5], hanuman: tx[6], tileN: tx[8], conc2: tx[9] };
   U.tDetail.value = tx[7];
