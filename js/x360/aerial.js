@@ -28,7 +28,7 @@ export const CL = { fog: 0, rain: 0, heat: 0, desat: 0, cool: 0, warm: 0, dark: 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: SHOT });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const TM = new URLSearchParams(location.search).get('tm');
-renderer.toneMapping = TM === 'aces' ? THREE.ACESFilmicToneMapping : THREE.AgXToneMapping; renderer.toneMappingExposure = 0.9;
+renderer.toneMapping = TM === 'agx' ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 let PR = Math.min(devicePixelRatio || 1, MOBILE ? 1.5 : 1.75); renderer.setPixelRatio(PR);
 const scene = new THREE.Scene();
